@@ -1,0 +1,32 @@
+{
+    "name": "shards",
+    "version": "1.0.0",
+    "description": "",
+    "type": "module",
+    "scripts": {
+        "build": "tsc",
+        "prepare": "ts-patch install",
+        "start": "node --loader ts-node/esm --no-warnings ./src/entry.ts"
+    },
+    "devDependencies": {
+        "@types/mime-types": "^3.0.1",
+        "@types/node": "^25.6.0",
+        "prettier": "^3.8.3",
+        "ts-node": "^10.9.2",
+        "ts-patch": "^3.3.0",
+        "typescript": "~5.9.3"
+    },
+    "private": true,
+    "dependencies": {
+        "@dotenvx/dotenvx": "^1.61.4",
+        "@types/pg": "^8.20.0",
+        "@typia/utils": "^12.0.2",
+        "axios": "^1.15.2",
+        "mime-types": "^3.0.2",
+        "node-napcat-ts": "^0.4.25",
+        "openai": "^6.34.0",
+        "pg": "^8.20.0",
+        "pgvector": "^0.2.1",
+        "typia": "^12.0.2"
+    }
+}
