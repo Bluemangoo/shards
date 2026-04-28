@@ -1,1 +1,6 @@
-export const sleep = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
+export function sleep(ms: number) {
+    return new Promise((resolve) => {
+        const timer = setTimeout(resolve, ms);
+        if (timer.unref) timer.unref();
+    });
+}

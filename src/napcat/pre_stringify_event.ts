@@ -7,6 +7,7 @@ import {
 } from "./wrapper.ts";
 import { NapCatEvent } from "../types/event.ts";
 import { EVENT_HINT_MAP } from "./filter.ts";
+import { GroupMessage } from "node-napcat-ts";
 
 export function stripGroupInfo<
     T extends {
@@ -90,9 +91,11 @@ export async function stripFullPrivateMessage(event: NapCatEvent) {
 
 export async function stripFullGroupMessage(event: NapCatEvent) {
     let isSelf = event.self_id == event.sender.user_id;
+    const senderInfo = await cached_get_group_member_info(event.sender.user_id, event.group_id);
     let sender = {
         is_self: isSelf,
         ...event.sender,
+        title: senderInfo.title,
     };
     return {
         time: event.time,
@@ -164,12 +167,46 @@ export async function getGroupPokeModelHint(event: NapCatEvent) {
     };
 }
 
+export async function injectAt(e: NapCatEvent) {
+    if (e.message != null && Array.isArray(e.message)) {
+        const event = e as GroupMessage;
+        for (const seg of event.message) {
+            if (seg.type == "at") {
+                if (seg.data.qq == "all") {
+                    (<any>seg.data).stringified = "@全体成员";
+                    (<any>seg.data).include_self = true;
+                    (<any>seg.data).is_self = false;
+                } else {
+                    const userInfo = await cached_get_group_member_info(
+                        seg.data.qq,
+                        event.group_id,
+                    );
+                    const displayName = await cached_get_group_member_display_name(
+                        seg.data.qq,
+                        event.group_id,
+                    );
+                    (<any>seg.data).stringified = `@${displayName}`;
+                    (<any>seg.data).user = {
+                        user_id: userInfo.user_id,
+                        nickname: userInfo.nickname,
+                        card: userInfo.card,
+                    };
+                    (<any>seg.data).include_self = (<any>seg.data).is_self =
+                        seg.data.qq == String(event.self_id);
+                }
+            }
+        }
+    }
+}
+
 export async function preStringifyEvent(event: NapCatEvent) {
     switch (event.hint) {
         case EVENT_HINT_MAP["notice.notify.poke.friend"]:
         case EVENT_HINT_MAP["notice.notify.poke.group"]:
             event = await stripPoke(event);
             break;
+        case EVENT_HINT_MAP["message.group.normal"]:
+            await injectAt(event);
     }
     return event;
 }

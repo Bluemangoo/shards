@@ -6,7 +6,8 @@
     "scripts": {
         "build": "tsc",
         "prepare": "ts-patch install",
-        "start": "node --loader ts-node/esm --no-warnings ./src/entry.ts"
+        "start": "node --loader ts-node/esm --no-warnings ./src/entry.ts",
+        "inject": "node --loader ts-node/esm --no-warnings ./src/inject.ts"
     },
     "devDependencies": {
         "@types/mime-types": "^3.0.1",

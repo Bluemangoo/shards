@@ -5,13 +5,13 @@ import { onEvent } from "../main_loop/life_cycle.ts";
 
 export const EVENT_HINT_MAP = {
     "message.private.friend": "private_message",
-    "message.group.normal": "group.normal",
+    "message.group.normal": "group_normal",
     "message.private.group": "temporary_private_message",
     "notice.notify.poke.friend": "private_poke",
     "notice.notify.poke.group": "group_poke",
 };
 
-export function registerNapcat(napcat: NCWebsocket, eventStack: EventStack<ChatWindow, any>) {
+export function registerNapcat(napcat: NCWebsocket) {
     function push(e: any, hint: string) {
         e["hint"] = hint;
         onEvent(e);

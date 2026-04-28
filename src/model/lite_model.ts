@@ -4,7 +4,7 @@ import { NapCatEvent } from "../types/event.ts";
 import { fullStripEvent, getModelHint, preStringifyEvent } from "../napcat/pre_stringify_event.ts";
 import fs from "node:fs";
 import path from "path";
-import workingMemory from "./working_memory.ts";
+import workingMemory, { WorkingMemoryItem } from "./working_memory.ts";
 import { LlmJson } from "@typia/utils";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
 
@@ -20,12 +20,13 @@ type FullSearchExtendedAnswer = {
 };
 
 class LiteModel {
-    private client: OpenAI;
-    public model: string;
+    client: OpenAI;
+    model: string;
     promptWorkingMemory = "";
     promptMemorySearch = "";
     promptMemoryFullSearch = "";
     promptMemoryAdd = "";
+    promptDreaming = "";
 
     constructor(
         baseUrl: string = CONFIG.liteModel.baseUrl,
@@ -64,6 +65,7 @@ class LiteModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            reasoning_effort: "low",
         });
 
         console.log(response.choices[0].message);
@@ -81,6 +83,7 @@ class LiteModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            reasoning_effort: "low",
         });
 
         console.log(response.choices[0].message);
@@ -130,6 +133,7 @@ class LiteModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            reasoning_effort: "low",
         });
 
         console.log(response.choices[0].message);
@@ -176,6 +180,34 @@ class LiteModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            reasoning_effort: "medium",
+        });
+        console.log(response.choices[0].message);
+        const content = response.choices[0].message.content;
+        if (content == null) {
+            return [];
+        }
+        const parsed = LlmJson.parse<string[]>(content);
+        if (!parsed.success) {
+            throw parsed.errors;
+        }
+        return parsed.data;
+    }
+
+    async dreaming(workingMemory: {
+        dreamed_alive: WorkingMemoryItem[];
+        undreamed_expired: WorkingMemoryItem[];
+        undreamed_alive: WorkingMemoryItem[];
+    }) {
+        const model_messages: any[] = [{ role: "system", content: this.promptDreaming }];
+        model_messages.push({
+            role: "user",
+            content: JSON.stringify(workingMemory),
+        });
+        const response = await this.client.chat.completions.create({
+            model: this.model,
+            messages: model_messages,
+            reasoning_effort: "high",
         });
         console.log(response.choices[0].message);
         const content = response.choices[0].message.content;
@@ -191,7 +223,7 @@ class LiteModel {
 }
 
 const liteModel = new LiteModel();
-function loadPrompts() {
+export function loadPrompts() {
     const root = process.cwd();
     try {
         liteModel.promptWorkingMemory = fs.readFileSync(
@@ -210,6 +242,7 @@ function loadPrompts() {
             path.join(root, "prompt/memory.add.md"),
             "utf-8",
         );
+        liteModel.promptDreaming = fs.readFileSync(path.join(root, "prompt/dreaming.md"), "utf-8");
     } catch (e) {
         console.error("Failed to load prompt files:", e);
     }

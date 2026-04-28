@@ -3,9 +3,6 @@ import CONFIG from "../data/config/config.ts";
 import fs from "node:fs";
 import path from "path";
 import { LlmJson } from "@typia/utils";
-import { NapCatEvent } from "../types/event.ts";
-import { Receive } from "node-napcat-ts/dist/Structs";
-import { sticker } from "../data/database/sticker.ts";
 
 type ImageParseResult = {
     summary: string;
@@ -14,9 +11,9 @@ type ImageParseResult = {
 };
 
 class ImageModel {
-    private client: OpenAI;
-    public model: string;
-    public prompt = "";
+    client: OpenAI;
+    model: string;
+    prompt = "";
 
     constructor(
         baseUrl: string = CONFIG.imageModel.baseUrl,
@@ -68,7 +65,7 @@ class ImageModel {
 }
 
 const imageModel = new ImageModel();
-function loadPrompts() {
+export function loadPrompts() {
     const root = process.cwd();
     try {
         imageModel.prompt = fs.readFileSync(path.join(root, "prompt/image.md"), "utf-8");

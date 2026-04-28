@@ -24,10 +24,17 @@ create index idx_event_time on events ((data ->> 'time'));
 create table working_memory
 (
     id          serial primary key,
-    content     text   not null,
-    weight      float  not null,
-    last_access bigint not null
+    content     text    not null,
+    weight      float   not null,
+    last_access bigint  not null,
+    dreamed     boolean not null default false
 );
+
+CREATE INDEX IF NOT EXISTS idx_working_memory_access_weight_ratio
+ON working_memory ((last_access / weight))
+WHERE weight != 0;
+
+create index idx_working_memory_dreamed on working_memory (dreamed);
 
 create table long_term_memory
 (

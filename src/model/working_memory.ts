@@ -10,16 +10,16 @@ type UpdateContent = { fn: "updateValue"; key: number; content: string };
 type UpdateWeight = { fn: "updateWeight"; key: number; weight: number };
 type WorkingMemoryProcessRequest = (Touch | Remove | Add | Update | UpdateContent | UpdateWeight)[];
 
-type MemoryItem = CacheItem<number, string>;
+export type WorkingMemoryItem = CacheItem<number, string>;
 
 class WorkingMemory {
     private inner = new WeightedLRU<number, string>(50);
 
     async load() {
         const data = await db().query(
-            "select id, content, weight, last_access from working_memory",
+            "select id, content, weight, last_access from working_memory order by (last_access / weight) desc limit 60",
         );
-        const entries: CacheItem<number, string>[] = data.rows.map((row: any) => ({
+        const entries: WorkingMemoryItem[] = data.rows.map((row: any) => ({
             key: row.id as number,
             value: row.content as string,
             weight: row.weight as number,
@@ -29,7 +29,7 @@ class WorkingMemory {
         this.inner.putAllRaw(entries);
     }
 
-    private async dbUpdate(value: MemoryItem) {
+    private async dbUpdate(value: WorkingMemoryItem) {
         await db().query(
             "update working_memory set content=$1, weight=$2, last_access=$3 where id=$4",
             [value.value, value.weight, value.lastAccessed, value.key],
@@ -101,7 +101,7 @@ class WorkingMemory {
         return true;
     }
 
-    list(): CacheItem<number, string>[] {
+    list(): WorkingMemoryItem[] {
         return this.inner.peekAll();
     }
 

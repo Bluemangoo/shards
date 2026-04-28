@@ -19,11 +19,11 @@ import { Receive } from "node-napcat-ts/dist/Structs";
 import { sticker } from "../data/database/sticker.ts";
 
 class MainModel {
-    private client: OpenAI;
-    public model: string;
-    public prompt_dev: string = "";
-    public prompt_sys: string = "";
-    public prompt_hint: string = "";
+    client: OpenAI;
+    model: string;
+    prompt_dev: string = "";
+    prompt_sys: string = "";
+    prompt_hint: string = "";
 
     constructor(
         baseUrl: string = CONFIG.mainModel.baseUrl,
@@ -54,37 +54,48 @@ class MainModel {
             { role: "system", content: this.prompt_sys },
         ];
 
-        try {
-            const memory = await longTermMemory.fullSearch(messages, history);
-            console.log("Found", memory.length, "relevant long-term memory items");
-            model_messages.push({
-                role: "system",
-                content: JSON.stringify({
-                    type: "matched_memory",
-                    memory: memory.map((r) => ({
-                        content: r.content,
-                        created_at:
-                            r.created_at.toLocaleDateString() +
-                            " " +
-                            r.created_at.toLocaleTimeString(),
-                    })),
-                }),
-            });
-        } catch (e) {
-            console.error("Failed to search memory, skipped:", e);
-        }
-        try {
-            const stickerInjector = new StickerInjector();
-            for (const event of messages) {
-                stickerInjector.addEvent(event);
-            }
-            for (const event of history) {
-                stickerInjector.addEvent(event.event);
-            }
-            await stickerInjector.process();
-        } catch (e) {
-            console.error("Failed to inject sticker description", e);
-        }
+        const memoryAndSticker: Promise<void>[] = [];
+        memoryAndSticker.push(
+            (async () => {
+                try {
+                    const memory = await longTermMemory.fullSearch(messages, history);
+                    console.log("Found", memory.length, "relevant long-term memory items");
+                    model_messages.push({
+                        role: "system",
+                        content: JSON.stringify({
+                            type: "matched_memory",
+                            memory: memory.map((r) => ({
+                                content: r.content,
+                                created_at:
+                                    r.created_at.toLocaleDateString() +
+                                    " " +
+                                    r.created_at.toLocaleTimeString(),
+                            })),
+                        }),
+                    });
+                } catch (e) {
+                    console.error("Failed to search memory, skipped:", e);
+                }
+            })(),
+        );
+        memoryAndSticker.push(
+            (async () => {
+                try {
+                    const stickerInjector = new StickerInjector();
+                    for (const event of messages) {
+                        stickerInjector.addEvent(event);
+                    }
+                    for (const event of history) {
+                        stickerInjector.addEvent(event.event);
+                    }
+                    await stickerInjector.process();
+                } catch (e) {
+                    console.error("Failed to inject sticker description", e);
+                }
+            })(),
+        );
+        await Promise.all(memoryAndSticker);
+
         const model_history: ChatNode[] = [];
         const trace: string[] = [];
         const history_messages: any[] = [];
@@ -143,18 +154,19 @@ class MainModel {
 
         model_messages.push({ role: "user", content: JSON.stringify(new_messages_payload) });
 
-        console.log(model_messages);
+        console.log("Requesting main model", model_messages);
 
         while (true) {
-            console.log("Requesting main model", model_messages);
             const response = await this.client.chat.completions.create({
                 model: this.model,
                 messages: model_messages,
                 tools: napcatToolDefined as any,
                 tool_choice: "auto",
+                reasoning_effort: "medium",
             });
 
             const response_message = response.choices[0].message;
+            console.log(response_message);
 
             const reasoning =
                 (response_message as any).reasoning_content || (response_message as any).reasoning;
@@ -246,7 +258,7 @@ class MainModel {
 
 const mainModel = new MainModel();
 
-function loadPrompts() {
+export function loadPrompts() {
     const root = process.cwd();
     try {
         mainModel.prompt_dev = fs.readFileSync(path.join(root, "prompt/dev.md"), "utf-8");

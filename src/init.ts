@@ -1,3 +1,7 @@
 import { config } from "@dotenvx/dotenvx";
 
-config({ quiet: true });
+export default function init() {
+    config({ quiet: true, overload: true });
+}
+
+init();

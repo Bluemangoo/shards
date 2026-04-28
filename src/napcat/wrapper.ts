@@ -69,3 +69,9 @@ export const cached_get_group_member_display_name = memoize(
         return remark || nickname || String(user_id);
     },
 );
+
+export const cached_get_forward_message = memoize(async (message_id: string | number) => {
+    return await napcat.get_forward_msg({
+        message_id: String(message_id),
+    });
+})

@@ -5,7 +5,11 @@ import { downloadFileWithAutoExt, urlToDataUrl } from "../utils/net.ts";
 import { SendMessageSegment, Structs } from "node-napcat-ts";
 import { preStringifyEvent, stripGroupInfo } from "./pre_stringify_event.ts";
 import { EventStore } from "../data/database/eventStore.ts";
-import { cached_get_friend_list, cached_get_group_info } from "./wrapper.ts";
+import {
+    cached_get_forward_message,
+    cached_get_friend_list,
+    cached_get_group_info,
+} from "./wrapper.ts";
 import typia from "typia";
 import { longTermMemory, MemorySearchResult } from "../model/long_term_memory.ts";
 import { sticker } from "../data/database/sticker.ts";
@@ -116,6 +120,18 @@ export const napcatTools = {
         },
         "获取单条消息",
         "根据消息 ID 获取消息详细信息",
+    ),
+
+    get_forward_message: toolHelper(
+        async (
+            p: {
+                forward_message_id: string;
+            } & ToolArguments,
+        ) => {
+            return await cached_get_forward_message(p.forward_message_id);
+        },
+        "获取合并转发消息内容",
+        "传入forward消息组分的id，获取合并转发消息的内容",
     ),
 
     /**
@@ -559,8 +575,10 @@ export abstract class InjectOutput {
     abstract output(): any;
 }
 
-export class ImageOutput implements InjectOutput {
-    constructor(public image: string) {}
+export class ImageOutput extends InjectOutput {
+    constructor(public image: string) {
+        super();
+    }
 
     toolOutputPlaceholder(): string {
         return "Image will be uploaded in the next user message";
@@ -576,11 +594,13 @@ export class ImageOutput implements InjectOutput {
     }
 }
 
-export class FileOutput implements InjectOutput {
+export class FileOutput extends InjectOutput {
     constructor(
         public file: string,
         public filename?: string,
-    ) {}
+    ) {
+        super();
+    }
 
     toolOutputPlaceholder(): string {
         return "File will be uploaded in the next user message";

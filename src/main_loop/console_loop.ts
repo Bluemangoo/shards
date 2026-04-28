@@ -1,0 +1,38 @@
+import * as readline from "node:readline/promises";
+import { stdin, stdout } from "node:process";
+import { CONFIG, reloadConfig } from "../data/config/config.ts";
+import { loadPrompts as loadMainPrompts, mainModel } from "../model/main_model.ts";
+import { liteModel, loadPrompts as loadLitePrompts } from "../model/lite_model.ts";
+import { imageModel, loadPrompts as loadImagePrompts } from "../model/image_model.ts";
+
+export function consoleLoop() {
+    const rl = readline.createInterface({ input: stdin, output: stdout });
+    process.stdin.unref();
+
+    rl.on("line", (line) => {
+        const text = line.trim();
+
+        if (text === "reload") {
+            reloadConfig();
+            loadMainPrompts();
+            loadLitePrompts();
+            loadImagePrompts();
+            mainModel.model = CONFIG.mainModel.model;
+            mainModel.client.baseURL = CONFIG.mainModel.baseUrl;
+            mainModel.client.apiKey = CONFIG.mainModel.apiKey;
+            liteModel.model = CONFIG.liteModel.model;
+            liteModel.client.baseURL = CONFIG.liteModel.baseUrl;
+            liteModel.client.apiKey = CONFIG.liteModel.apiKey;
+            imageModel.model = CONFIG.imageModel.model;
+            imageModel.client.baseURL = CONFIG.imageModel.baseUrl;
+            imageModel.client.apiKey = CONFIG.imageModel.apiKey;
+            console.log("Config reloaded.");
+        }
+    });
+
+    rl.on("SIGINT", () => {
+        process.exit(0);
+    });
+
+    return rl;
+}

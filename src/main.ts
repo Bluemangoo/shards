@@ -7,14 +7,17 @@ import { NapCatEvent } from "./types/event.ts";
 import { onEventBatch } from "./main_loop/life_cycle.ts";
 import workingMemory from "./model/working_memory.ts";
 import { sleep } from "./utils/sleep.ts";
+import { consoleLoop } from "./main_loop/console_loop.ts";
+import { dreamingLoop } from "./main_loop/dreaming_loop.ts";
 
 export const eventStack = new EventStack<ChatWindow, { [key: string]: NapCatEvent }>(5);
 export default async function main() {
     const runningTasks: Promise<any>[] = [];
     await initDb();
     console.log("Database initialized");
+    consoleLoop();
     await workingMemory.load();
-    registerNapcat(napcat, eventStack);
+    registerNapcat(napcat);
     runningTasks.push(
         napcat.connect().then(async () => {
             const info = await napcat.get_login_info();
@@ -23,6 +26,7 @@ export default async function main() {
         }),
     );
     runningTasks.push(listenStack());
+    runningTasks.push(dreamingLoop());
     await Promise.all(runningTasks);
 }
 
