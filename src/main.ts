@@ -10,7 +10,7 @@ import { sleep } from "./utils/sleep.ts";
 import { consoleLoop } from "./main_loop/console_loop.ts";
 import { dreamingLoop } from "./main_loop/dreaming_loop.ts";
 
-export const eventStack = new EventStack<ChatWindow, { [key: string]: NapCatEvent }>(5);
+export const eventStack = new EventStack<ChatWindow, NapCatEvent>(5);
 export default async function main() {
     const runningTasks: Promise<any>[] = [];
     await initDb();
