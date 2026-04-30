@@ -1,8 +1,7 @@
 import OpenAI from "openai";
 import CONFIG from "../data/config/config.ts";
-import fs from "node:fs";
-import path from "path";
 import { LlmJson } from "@typia/utils";
+import { readPrompt } from "../utils/file.ts";
 
 type ImageParseResult = {
     summary: string;
@@ -66,9 +65,8 @@ class ImageModel {
 
 const imageModel = new ImageModel();
 export function loadPrompts() {
-    const root = process.cwd();
     try {
-        imageModel.prompt = fs.readFileSync(path.join(root, "prompt/image.md"), "utf-8");
+        imageModel.prompt = readPrompt("image");
     } catch (e) {
         console.error("Failed to load prompt files:", e);
     }

@@ -1,5 +1,7 @@
 import { readdir } from "node:fs/promises";
 import { parse } from "node:path";
+import fs from "node:fs";
+import path from "path";
 
 export async function findSingleFileByBaseName(
     targetDir: string,
@@ -25,3 +27,8 @@ export async function findSingleFileByBaseName(
     }
 }
 
+export function readPrompt(name: string) {
+    return fs
+        .readFileSync(path.join(process.cwd(), `prompt/${name}.md`), "utf-8")
+        .replaceAll("\r\n", "\n");
+}

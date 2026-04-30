@@ -2,11 +2,10 @@ import OpenAI from "openai";
 import CONFIG from "../data/config/config.ts";
 import { NapCatEvent } from "../types/event.ts";
 import { fullStripEvent, getModelHint, preStringifyEvent } from "../napcat/pre_stringify_event.ts";
-import fs from "node:fs";
-import path from "path";
 import workingMemory, { WorkingMemoryItem } from "./working_memory.ts";
 import { LlmJson } from "@typia/utils";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
+import { readPrompt } from "../utils/file.ts";
 
 type SearchExtendedAnswer = {
     keywords: string | string[];
@@ -224,25 +223,12 @@ class LiteModel {
 
 const liteModel = new LiteModel();
 export function loadPrompts() {
-    const root = process.cwd();
     try {
-        liteModel.promptWorkingMemory = fs.readFileSync(
-            path.join(root, "prompt/working.memory.md"),
-            "utf-8",
-        );
-        liteModel.promptMemorySearch = fs.readFileSync(
-            path.join(root, "prompt/memory.search.md"),
-            "utf-8",
-        );
-        liteModel.promptMemoryFullSearch = fs.readFileSync(
-            path.join(root, "prompt/memory.full.search.md"),
-            "utf-8",
-        );
-        liteModel.promptMemoryAdd = fs.readFileSync(
-            path.join(root, "prompt/memory.add.md"),
-            "utf-8",
-        );
-        liteModel.promptDreaming = fs.readFileSync(path.join(root, "prompt/dreaming.md"), "utf-8");
+        liteModel.promptWorkingMemory = readPrompt("working.memory");
+        liteModel.promptMemorySearch = readPrompt("memory.search");
+        liteModel.promptMemoryFullSearch = readPrompt("memory.full.search");
+        liteModel.promptMemoryAdd = readPrompt("memory.add");
+        liteModel.promptDreaming = readPrompt("dreaming");
     } catch (e) {
         console.error("Failed to load prompt files:", e);
     }

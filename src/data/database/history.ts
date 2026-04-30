@@ -1,6 +1,6 @@
 import CircularQueue from "../../utils/circular_queue.ts";
 import { ChatWindow } from "../../utils/chat_window.ts";
-import { EventStore } from "./eventStore.ts";
+import { EventStore } from "./event_store.ts";
 
 export class ChatNode {
     constructor(public trace: string[]) {}

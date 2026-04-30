@@ -3,8 +3,8 @@ import { napcat } from "./client.ts";
 import { storeEvent } from "../main_loop/life_cycle.ts";
 import { downloadFileWithAutoExt, urlToDataUrl } from "../utils/net.ts";
 import { SendMessageSegment, Structs } from "node-napcat-ts";
-import { preStringifyEvent, stripGroupInfo } from "./pre_stringify_event.ts";
-import { EventStore } from "../data/database/eventStore.ts";
+import { fullStripEvent, preStringifyEvent, stripGroupInfo } from "./pre_stringify_event.ts";
+import { EventStore } from "../data/database/event_store.ts";
 import {
     cached_get_forward_message,
     cached_get_friend_list,
@@ -15,6 +15,9 @@ import { longTermMemory, MemorySearchResult } from "../model/long_term_memory.ts
 import { sticker } from "../data/database/sticker.ts";
 import fs from "node:fs";
 import { findSingleFileByBaseName } from "../utils/file.ts";
+import { eventStack } from "../main.ts";
+import { NapCatEvent } from "../types/event.ts";
+import { history } from "../data/database/history.ts";
 
 export const napcatTools = {
     /**
@@ -552,6 +555,43 @@ export const napcatTools = {
         },
         "发送表情包",
         '向私聊或群聊发送表情包如"group_id":"123456","sticker_id":6，在上下文中可不填类型和id',
+    ),
+    wait_next: toolHelper(
+        async (p: { min?: number; max?: number } & ToolArguments) => {
+            if (!p.context.window) {
+                return { error: "当前不处于特定的聊天窗口中，无法等待。" };
+            }
+
+            const minMs = (p.min || 10) * 1000;
+            const maxMs = Math.max(p.min || 10, p.max || 60) * 1000;
+            const startTime = performance.now();
+            const events: NapCatEvent[] = [];
+            while (performance.now() - startTime < minMs) {
+                const e = await eventStack.consumeOne(
+                    p.context.window,
+                    minMs - (performance.now() - startTime),
+                );
+                if (e) {
+                    events.push(e);
+                }
+            }
+            if (events.length == 0) {
+                const e = await eventStack.consumeOne(
+                    p.context.window,
+                    maxMs - (performance.now() - startTime),
+                );
+                if (e) {
+                    events.push(e);
+                }
+            }
+            if (events.length > 0) {
+                history.addPretendProcessedEvent(p.context.window, events);
+                return await Promise.all(events.map((e) => fullStripEvent(e)));
+            }
+            return { error: "timeout" };
+        },
+        "阻塞等待下一条消息",
+        "如果你觉得对方没说完且正在发送下一条消息，则使用此工具。传入min设定最小等待时长(秒)(默认10s)，传入max设定最大等待时长(秒)(默认60s)，这两个参数一般可以不传。一般不要timeout了还继续等，这种情况等事件循环推消息就好了。",
     ),
 };
 type ToolFunctions = {

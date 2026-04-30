@@ -25,7 +25,7 @@ class AsyncCondition {
 export class EventStack<K, T> {
     private _stacks = new Map<K | null, T[]>();
     private _lastPushTimes = new Map<K | null, number>();
-    private _forceFlush = new Set<K | null>(); // 新增：用于记录被要求立刻弹出的 window
+    private _forceFlush = new Set<K | null>();
     private readonly _countThreshold: number;
     private readonly _timeout: number; // s
     private _condition = new AsyncCondition();
@@ -67,6 +67,22 @@ export class EventStack<K, T> {
         this._condition.notifyAll();
     }
 
+    async consumeOne(window: K | null, timeoutMs: number): Promise<T | null> {
+        const start = performance.now();
+        while (true) {
+            const stack = this._stacks.get(window);
+            if (stack && stack.length > 0) {
+                return stack.shift()!;
+            }
+
+            const elapsed = performance.now() - start;
+            if (elapsed >= timeoutMs) {
+                return null;
+            }
+            await this._condition.wait(timeoutMs - elapsed);
+        }
+    }
+
     async *subscribe(): AsyncGenerator<[K | null, T[], (success: boolean) => void], void, unknown> {
         while (true) {
             const hasData = Array.from(this._stacks.values()).some((s) => s.length > 0);
@@ -95,9 +111,10 @@ export class EventStack<K, T> {
                     const isForced = this._forceFlush.has(window);
 
                     if (
-                        stack.length >= this._countThreshold ||
-                        elapsed >= this._timeout ||
-                        isForced
+                        elapsed > 5 &&
+                        (stack.length >= this._countThreshold ||
+                            elapsed >= this._timeout ||
+                            isForced)
                     ) {
                         readyWindow = window;
                         found = true;

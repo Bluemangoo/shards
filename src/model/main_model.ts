@@ -1,5 +1,4 @@
 import OpenAI from "openai";
-import * as path from "path";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
 import { ModelContext } from "../utils/context.ts";
 import { NapCatEvent } from "../types/event.ts";
@@ -11,12 +10,12 @@ import {
 } from "../napcat/tools.ts";
 import { fullStripEvent, getModelHint } from "../napcat/pre_stringify_event.ts";
 import { LlmJson } from "@typia/utils";
-import * as fs from "node:fs";
 import CONFIG from "../data/config/config.ts";
 import workingMemory from "./working_memory.ts";
 import { longTermMemory } from "./long_term_memory.ts";
 import { Receive } from "node-napcat-ts/dist/Structs";
 import { sticker } from "../data/database/sticker.ts";
+import { readPrompt } from "../utils/file.ts";
 
 class MainModel {
     client: OpenAI;
@@ -259,11 +258,10 @@ class MainModel {
 const mainModel = new MainModel();
 
 export function loadPrompts() {
-    const root = process.cwd();
     try {
-        mainModel.prompt_dev = fs.readFileSync(path.join(root, "prompt/dev.md"), "utf-8");
-        mainModel.prompt_sys = fs.readFileSync(path.join(root, "prompt/sys.md"), "utf-8");
-        mainModel.prompt_hint = fs.readFileSync(path.join(root, "prompt/hint.md"), "utf-8");
+        mainModel.prompt_dev = readPrompt("dev");
+        mainModel.prompt_sys = readPrompt("sys");
+        mainModel.prompt_hint = readPrompt("hint");
     } catch (e) {
         console.error("Failed to load prompt files:", e);
     }

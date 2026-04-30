@@ -18,14 +18,12 @@ export default class CircularQueue<T> {
         return this.size === this.capacity;
     }
 
-    push(item: T): boolean {
-        if (this.is_full()) {
-            return false; // 或者抛出错误
-        }
+    push(item: T) {
         this.buffer[this.tail] = item;
         this.tail = (this.tail + 1) % this.capacity;
-        this.size++;
-        return true;
+        if (!this.is_full()) {
+            this.size++;
+        }
     }
 
     pop(): T | undefined {

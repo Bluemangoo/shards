@@ -1,4 +1,4 @@
-import { EventStore } from "../data/database/eventStore.ts";
+import { EventStore } from "../data/database/event_store.ts";
 import { NapCatEvent } from "../types/event.ts";
 import { ChatWindow } from "../utils/chat_window.ts";
 import { ChatNode, ConsumedEvent, history } from "../data/database/history.ts";
