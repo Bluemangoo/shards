@@ -6,9 +6,9 @@ import { initDb } from "./data/database/db.ts";
 import { NapCatEvent } from "./types/event.ts";
 import { onEventBatch } from "./main_loop/life_cycle.ts";
 import workingMemory from "./model/working_memory.ts";
-import { sleep } from "./utils/sleep.ts";
 import { consoleLoop } from "./main_loop/console_loop.ts";
 import { dreamingLoop } from "./main_loop/dreaming_loop.ts";
+import { cached_get_login_info } from "./napcat/wrapper.ts";
 
 export const eventStack = new EventStack<ChatWindow, NapCatEvent>(5);
 export default async function main() {
@@ -20,7 +20,7 @@ export default async function main() {
     registerNapcat(napcat);
     runningTasks.push(
         napcat.connect().then(async () => {
-            const info = await napcat.get_login_info();
+            const info = await cached_get_login_info();
             loginInfo.data = info;
             console.log(`Napcat connected: ${info.nickname} (${info.user_id})`);
         }),
@@ -36,7 +36,7 @@ async function listenStack() {
             await onEventBatch(window, stack);
         } catch (e) {
             console.error(e);
-            await sleep(5000);
+            // await sleep(5000);
             confirm(false);
         }
     }

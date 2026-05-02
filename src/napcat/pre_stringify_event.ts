@@ -4,6 +4,7 @@ import {
     cached_get_group_info,
     cached_get_group_member_display_name,
     cached_get_group_member_info,
+    cached_get_stranger_display_name,
 } from "./wrapper.ts";
 import { NapCatEvent } from "../types/event.ts";
 import { EVENT_HINT_MAP } from "./filter.ts";
@@ -44,10 +45,14 @@ export async function stripPoke(event: any) {
 
         name1 = user1_is_self
             ? "你"
-            : (await cached_get_friend_display_name(event.sender_id)) || event.sender_id;
+            : (await cached_get_friend_display_name(event.sender_id)) ||
+              (await cached_get_stranger_display_name(event.sender_id)) ||
+              event.sender_id;
         name2 = user2_is_self
             ? "你"
-            : (await cached_get_friend_display_name(event.target_id)) || event.target_id;
+            : (await cached_get_friend_display_name(event.target_id)) ||
+              (await cached_get_stranger_display_name(event.sender_id)) ||
+              event.target_id;
     }
     let cnt = 0;
     let stringified_message = "";

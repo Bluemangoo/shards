@@ -9,6 +9,8 @@ import {
     cached_get_forward_message,
     cached_get_friend_list,
     cached_get_group_info,
+    cached_get_login_info,
+    cached_get_stranger_info,
 } from "./wrapper.ts";
 import typia from "typia";
 import { longTermMemory, MemorySearchResult } from "../model/long_term_memory.ts";
@@ -29,7 +31,6 @@ export const napcatTools = {
                 user_id?: number;
                 group_id?: number;
                 message: SendMessageSegment[] | string;
-                auto_escape?: boolean;
             } & ToolArguments,
         ) => {
             if (p.user_id == null && p.group_id == null) {
@@ -233,6 +234,26 @@ export const napcatTools = {
         "获取当前的好友列表（全部），由于数据较多建议先用get_chat_list。",
     ),
 
+    get_user_info: toolHelper(
+        async (
+            p: {
+                user_id: number;
+            } & ToolArguments,
+        ) => {
+            const selfInfo = await cached_get_login_info();
+            let user;
+            if (p.user_id == selfInfo.user_id) {
+                user = selfInfo;
+            } else {
+                user = await cached_get_stranger_info(p.user_id);
+            }
+            (user as any).avatar = `https://q1.qlogo.cn/g?b=qq&nk=${p.user_id}&s=640`;
+            return user;
+        },
+        "获取用户信息",
+        "根据id获取用户的昵称、头像等信息",
+    ),
+
     /**
      * 根据群 ID 获取群信息，在上下文中可不填类型和 id
      */
@@ -247,15 +268,14 @@ export const napcatTools = {
                 groupId = Number(p.context.window.id);
             }
             if (!groupId) throw new Error("Missing group_id");
-            return stripGroupInfo(await cached_get_group_info(groupId));
+            const info = await cached_get_group_info(groupId);
+            (info as any).avatar = `https://p.qlogo.cn/gh/${groupId}/${groupId}/640/`;
+            return info;
         },
         "获取群信息",
         "根据群 ID 获取群信息，在上下文中可不填类型和id",
     ),
 
-    /**
-     * 根据群 ID 获取群成员列表，在上下文中可不填类型和 id
-     */
     get_group_member_list: toolHelper(
         async (
             p: {
@@ -273,9 +293,6 @@ export const napcatTools = {
         "根据群 ID 获取群成员列表，在上下文中可不填类型和id",
     ),
 
-    /**
-     * 根据消息 ID 列表转发消息，将会逐条按顺序发送，也可用于复读
-     */
     forward_messages: toolHelper(
         async (
             p: {
@@ -320,9 +337,6 @@ export const napcatTools = {
         "根据消息 ID 列表转发消息，将会逐条按顺序发送，也可用于复读，在上下文中可不填类型和id",
     ),
 
-    /**
-     * 根据合并消息 ID 获取合并消息的内容
-     */
     get_forward_msg: toolHelper(
         async (
             p: {
@@ -335,9 +349,6 @@ export const napcatTools = {
         "根据合并消息 ID 获取合并消息的内容",
     ),
 
-    /**
-     * 根据图片 URL 读取图片内容，返回图片数据结构
-     */
     read_image: toolHelper(
         async (
             p: {
@@ -350,9 +361,6 @@ export const napcatTools = {
         "根据图片 URL 读取图片内容，返回图片",
     ),
 
-    /**
-     * 根据文件 URL 下载文件，返回文件的二进制内容
-     */
     download_file: toolHelper(
         async (
             p: {
@@ -391,6 +399,7 @@ export const napcatTools = {
         "下载文件",
         "根据文件URL下载文件，返回文件内容",
     ),
+
     block: toolHelper(
         async (p: { id: number } & ToolArguments) => {
             return await napcat.delete_friend({ user_id: p.id, temp_block: true });
@@ -398,6 +407,7 @@ export const napcatTools = {
         "删除并拉黑好友",
         "根据id删除并拉黑好友（需要是好友）",
     ),
+
     search_memory: toolHelper(
         async (p: { query: string[] } & ToolArguments) => {
             const r = await Promise.all(
@@ -414,6 +424,7 @@ export const napcatTools = {
         "在记忆中搜索",
         "根据句子在记忆中搜索。请不要吝啬使用",
     ),
+
     list_stickers: toolHelper(
         async (p: {} & ToolArguments) => {
             const s = await sticker.listStickers();
@@ -426,6 +437,7 @@ export const napcatTools = {
         "列出所有表情包",
         "列出已保存的全部表情包，返回的表情包不包含详细内容只有概括，需要更详细的内容请使用表情包id查询表情包详情",
     ),
+
     save_stickers: toolHelper(
         async (p: { file_id: string; url: string } & ToolArguments) => {
             const existing = await sticker.findStickersWithFileId(p.file_id);
@@ -463,6 +475,7 @@ export const napcatTools = {
         "收藏表情包",
         "收藏表情包到表情包列表，之后可以发送",
     ),
+
     get_sticker: toolHelper(async (p: { id: number } & ToolArguments) => {
         const s = await sticker.getSticker(p.id);
         if (!s) {
@@ -475,6 +488,7 @@ export const napcatTools = {
             tags: s.description_data.tags,
         };
     }),
+
     send_sticker: toolHelper(
         async (
             p: {
@@ -556,6 +570,7 @@ export const napcatTools = {
         "发送表情包",
         '向私聊或群聊发送表情包如"group_id":"123456","sticker_id":6，在上下文中可不填类型和id',
     ),
+
     wait_next: toolHelper(
         async (p: { min?: number; max?: number } & ToolArguments) => {
             if (!p.context.window) {
