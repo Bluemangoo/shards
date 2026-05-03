@@ -44,7 +44,7 @@ export const cached_get_stranger_info = memoize(async (user_id: string | number)
 });
 
 export const cached_get_friend_display_name = memoize(
-    async (user_id: string): Promise<string | null> => {
+    async (user_id: string | number): Promise<string | null> => {
         const info = await cached_get_friend_info(user_id);
         if (info) {
             return info.remark || info.nickname || null;
@@ -54,7 +54,7 @@ export const cached_get_friend_display_name = memoize(
 );
 
 export const cached_get_stranger_display_name = memoize(
-    async (user_id: string): Promise<string | null> => {
+    async (user_id: string | number): Promise<string | null> => {
         const info = await cached_get_stranger_info(user_id);
         if (info) {
             return info.remark || info.nickname || null;
@@ -74,15 +74,9 @@ export const cached_get_group_member_display_name = memoize(
             nickname = member_info.nickname;
         }
 
-        const friend_info = await cached_get_friend_info(user_id);
-        if (friend_info) {
-            remark = friend_info.remark;
-            if (!nickname) nickname = friend_info.nickname;
-        } else {
-            const stranger_info = await cached_get_stranger_info(user_id);
-            remark = stranger_info.remark;
-            if (!nickname) nickname = stranger_info.nickname;
-        }
+        const stranger_info = await cached_get_stranger_info(user_id);
+        remark = stranger_info.remark;
+        if (!nickname) nickname = stranger_info.nickname;
 
         return remark || nickname || String(user_id);
     },

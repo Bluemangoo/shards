@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
 import { ModelContext } from "../utils/context.ts";
-import { NapCatEvent } from "../types/event.ts";
+import { HintInjectedEvent } from "../types/event.ts";
 import {
     InjectOutput,
     napcatMcpApplication,
@@ -9,7 +9,6 @@ import {
     napcatTools,
 } from "../napcat/tools.ts";
 import { fullStripEvent, getModelHint } from "../napcat/pre_stringify_event.ts";
-import { LlmJson } from "@typia/utils";
 import CONFIG from "../data/config/config.ts";
 import workingMemory from "./working_memory.ts";
 import { longTermMemory } from "./long_term_memory.ts";
@@ -40,7 +39,11 @@ class MainModel {
         });
     }
 
-    async response_chat(messages: NapCatEvent[], history: ConsumedEvent[], context: ModelContext) {
+    async response_chat(
+        messages: HintInjectedEvent[],
+        history: ConsumedEvent[],
+        context: ModelContext,
+    ) {
         console.log(
             "Responding to chat with messages:",
             messages.length,
@@ -206,7 +209,7 @@ class MainModel {
                     if (!define) throw new Error(`Tool ${function_name} not found`);
                     let args = define.parse(function_args);
                     if (!args.success) {
-                        throw LlmJson.stringify(args as any);
+                        throw JSON.stringify(args.errors);
                     }
                     let argsWithContext;
                     if (args.data == null) {
@@ -230,7 +233,7 @@ class MainModel {
                         tool_result = JSON.stringify(tool_result);
                     }
                 } catch (e) {
-                    tool_result = JSON.stringify({ error: String(e) });
+                    tool_result = `error: ${e}`;
                 }
 
                 trace.push(`Tool result: ${String(tool_result).slice(0, 256)}`);
@@ -272,11 +275,11 @@ loadPrompts();
 export { mainModel };
 
 class StickerInjector {
-    map = new Map<string, any[]>();
+    map = new Map<string, Receive["image"]["data"][]>();
 
-    addEvent(event: NapCatEvent) {
-        if (event.message != null && Array.isArray(event.message)) {
-            for (const seg of event.message as Receive[keyof Receive][]) {
+    addEvent(event: HintInjectedEvent) {
+        if (event.post_type == "message") {
+            for (const seg of event.message) {
                 if (seg.type == "image") {
                     if (seg.data.summary == "[动画表情]") {
                         let e = this.map.get(seg.data.file);
@@ -299,15 +302,16 @@ class StickerInjector {
         await Promise.all(tasks);
     }
 
-    private async processOne(fileId: string, segs: any[]) {
+    private async processOne(fileId: string, segs: Receive["image"]["data"][]) {
         const d = await sticker.getOrCreateDescription(fileId, segs[0].url);
         if (d == null) {
             return;
         }
         segs.forEach((seg) => {
-            seg.summary = d.summary;
-            seg.description = d.description;
-            seg.tags = d.tags;
+            // any: inject
+            (<any>seg).sticker_summary = d.summary;
+            (<any>seg).description = d.description;
+            (<any>seg).tags = d.tags;
         });
     }
 }

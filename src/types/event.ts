@@ -1,1 +1,17 @@
-export type NapCatEvent = { [key: string]: any };
+import { EVENT_HINT_MAP } from "../napcat/filter.ts";
+import { AllHandlers } from "node-napcat-ts/dist/Interfaces";
+
+export type NapcatEvent = {
+    [K in keyof typeof EVENT_HINT_MAP]: AllHandlers[K] &
+        (K extends keyof ExtraFieldsMap ? ExtraFieldsMap[K] : unknown);
+}[keyof typeof EVENT_HINT_MAP];
+type ExtraFieldsMap = {
+    "notice.notify.poke.friend": { sender_id: number };
+    "notice.notify.poke.group": { sender_id: number };
+    "message.private.group": { group_id: number };
+};
+export type HintInjectedEvent = {
+    [K in keyof typeof EVENT_HINT_MAP]: AllHandlers[K] & {
+        hint: (typeof EVENT_HINT_MAP)[K];
+    } & (K extends keyof ExtraFieldsMap ? ExtraFieldsMap[K] : unknown);
+}[keyof typeof EVENT_HINT_MAP];

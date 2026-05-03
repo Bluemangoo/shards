@@ -3,13 +3,14 @@ import { napcat } from "./client.ts";
 import { storeEvent } from "../main_loop/life_cycle.ts";
 import { downloadFileWithAutoExt, urlToDataUrl } from "../utils/net.ts";
 import { SendMessageSegment, Structs } from "node-napcat-ts";
-import { fullStripEvent, preStringifyEvent, stripGroupInfo } from "./pre_stringify_event.ts";
+import { fullStripEvent, preStringifyEvent } from "./pre_stringify_event.ts";
 import { EventStore } from "../data/database/event_store.ts";
 import {
     cached_get_forward_message,
     cached_get_friend_list,
     cached_get_group_info,
     cached_get_login_info,
+    cached_get_stranger_display_name,
     cached_get_stranger_info,
 } from "./wrapper.ts";
 import typia from "typia";
@@ -18,8 +19,10 @@ import { sticker } from "../data/database/sticker.ts";
 import fs from "node:fs";
 import { findSingleFileByBaseName } from "../utils/file.ts";
 import { eventStack } from "../main.ts";
-import { NapCatEvent } from "../types/event.ts";
+import { HintInjectedEvent } from "../types/event.ts";
 import { history } from "../data/database/history.ts";
+import { EVENT_HINT_MAP, injectMsgHint } from "./filter.ts";
+import { NapcatResult } from "../types/napcat_api.ts";
 
 export const napcatTools = {
     /**
@@ -56,27 +59,15 @@ export const napcatTools = {
                 });
             }
 
-            const message: any = await napcat.get_msg({ message_id: result.message_id });
+            const message = await napcat.get_msg({ message_id: result.message_id });
 
-            // 补充额外的 hint 标签以便于后续判断
-            if (message.message_type === "group") {
-                message.hint = "group_message";
-            } else if (message.group_id != null) {
-                message.hint = "temporary_private_message";
-            } else {
-                message.hint = "private_message";
-            }
-
-            await storeEvent(message);
+            await storeEvent(injectMsgHint(message));
             return result;
         },
         "发送消息",
         '发送私聊或群聊消息如"message_type":"group","group_id":"123456","message":"hello"，在上下文中可不填类型和id，简单消息用字符串类型即可',
     ),
 
-    /**
-     * 戳一戳别人，在上下文中可不填类型和 id
-     */
     poke: toolHelper(
         async (
             p: {
@@ -110,9 +101,6 @@ export const napcatTools = {
         "戳一戳别人，在上下文中可不填类型和id",
     ),
 
-    /**
-     * 根据消息 ID 获取消息详细信息
-     */
     get_message: toolHelper(
         async (
             p: {
@@ -120,7 +108,7 @@ export const napcatTools = {
             } & ToolArguments,
         ) => {
             const message = await napcat.get_msg({ message_id: Number(p.message_id) });
-            return await preStringifyEvent(message);
+            return await preStringifyEvent(injectMsgHint(message));
         },
         "获取单条消息",
         "根据消息 ID 获取消息详细信息",
@@ -138,9 +126,6 @@ export const napcatTools = {
         "传入forward消息组分的id，获取合并转发消息的内容",
     ),
 
-    /**
-     * 根据时间范围获取历史消息，可选 message_seq 为起始消息序号，上下文中可不填类型和id
-     */
     get_history_messages: toolHelper(
         async (
             p: {
@@ -167,7 +152,7 @@ export const napcatTools = {
                 }
             }
 
-            let messageHistory: any[] = [];
+            let messageHistory: NapcatResult["get_msg"][] = [];
             if (type === "group" && groupId != null) {
                 const res = await napcat.get_group_msg_history({
                     group_id: groupId,
@@ -186,33 +171,51 @@ export const napcatTools = {
                 return [];
             }
 
-            return await Promise.all(messageHistory.map((m) => preStringifyEvent(m)));
+            return await Promise.all(
+                messageHistory.map((m) => preStringifyEvent(injectMsgHint(m))),
+            );
         },
         "获取历史消息",
         "根据时间范围获取历史消息，其中可选的message_seq为起始消息序号，在上下文中可不填类型和id",
     ),
 
-    /**
-     * 获取当前的聊天列表(最多20条)，包含群聊和私聊
-     */
     get_chat_list: toolHelper(
         async (p: ToolArguments) => {
             const messages = await EventStore.get_distinct_message_events(20);
-            const chatList = [];
+            const chatList: {
+                message_type: "group" | "private";
+                id: number;
+                display_name: string | null;
+                time: number;
+            }[] = [];
 
-            for (const message of messages as any[]) {
-                if (message.message_type === "group") {
+            for (const message of messages) {
+                if (
+                    message.hint == EVENT_HINT_MAP["notice.notify.poke.group"] ||
+                    message.hint == EVENT_HINT_MAP["message.group.normal"]
+                ) {
+                    const groupInfo = await cached_get_group_info(message.group_id);
                     chatList.push({
                         message_type: "group",
-                        id: String(message.group_id),
-                        display_name: message.group_name || "",
+                        id: message.group_id,
+                        display_name: groupInfo.group_remark || groupInfo.group_name,
                         time: message.time,
                     });
-                } else if (message.message_type === "private") {
+                } else if (
+                    message.hint == EVENT_HINT_MAP["message.private.group"] ||
+                    message.hint == EVENT_HINT_MAP["message.private.friend"] ||
+                    message.hint == EVENT_HINT_MAP["notice.notify.poke.friend"]
+                ) {
+                    let id;
+                    if (message.hint == EVENT_HINT_MAP["notice.notify.poke.friend"]) {
+                        id = message.target_id;
+                    } else {
+                        id = message.user_id;
+                    }
                     chatList.push({
                         message_type: "private",
-                        id: String(message.target_id || message.user_id),
-                        display_name: message.sender?.nickname || "",
+                        id,
+                        display_name: await cached_get_stranger_display_name(id),
                         time: message.time,
                     });
                 }
@@ -223,9 +226,6 @@ export const napcatTools = {
         "获取当前的聊天列表(最多20条)，包含群聊和私聊",
     ),
 
-    /**
-     * 获取当前的好友列表（全部）
-     */
     get_friend_list: toolHelper(
         async (p: ToolArguments) => {
             return await cached_get_friend_list();
@@ -254,9 +254,6 @@ export const napcatTools = {
         "根据id获取用户的昵称、头像等信息",
     ),
 
-    /**
-     * 根据群 ID 获取群信息，在上下文中可不填类型和 id
-     */
     get_group_info: toolHelper(
         async (
             p: {
@@ -551,20 +548,12 @@ export const napcatTools = {
                 }
             }
 
-            const message: any = await napcat.get_msg({ message_id: result.message_id });
-            if (needUpdate) {
-                await sticker.updateStickerFileId(s.id, s.file_id, message.message[0].data.file_id);
+            const message = await napcat.get_msg({ message_id: result.message_id });
+            if (needUpdate && message.message[0].type == "image") {
+                await sticker.updateStickerFileId(s.id, s.file_id, message.message[0].data.file);
             }
 
-            if (message.message_type === "group") {
-                message.hint = "group_message";
-            } else if (message.group_id != null) {
-                message.hint = "temporary_private_message";
-            } else {
-                message.hint = "private_message";
-            }
-
-            await storeEvent(message);
+            await storeEvent(injectMsgHint(message));
             return result;
         },
         "发送表情包",
@@ -580,7 +569,7 @@ export const napcatTools = {
             const minMs = (p.min || 10) * 1000;
             const maxMs = Math.max(p.min || 10, p.max || 60) * 1000;
             const startTime = performance.now();
-            const events: NapCatEvent[] = [];
+            const events: HintInjectedEvent[] = [];
             while (performance.now() - startTime < minMs) {
                 const e = await eventStack.consumeOne(
                     p.context.window,

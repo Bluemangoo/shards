@@ -1,6 +1,7 @@
 import CircularQueue from "../../utils/circular_queue.ts";
 import { ChatWindow } from "../../utils/chat_window.ts";
 import { EventStore } from "./event_store.ts";
+import { HintInjectedEvent } from "../../types/event.ts";
 
 export class ChatNode {
     constructor(public trace: string[]) {}
@@ -8,17 +9,17 @@ export class ChatNode {
 
 export class ConsumedEvent {
     constructor(
-        public event: any,
+        public event: HintInjectedEvent,
         public chat_node: ChatNode | null,
     ) {}
 }
 
 export class HistoryManager {
-    public event_history: any[] = [];
+    public event_history: HintInjectedEvent[] = [];
     public window_history: Map<ChatWindow | null, CircularQueue<ConsumedEvent>> = new Map();
-    public chat_history: Map<ChatWindow | null, any[]> = new Map();
+    public chat_history: Map<ChatWindow | null, HintInjectedEvent[]> = new Map();
 
-    addEvent(event: any): void {
+    addEvent(event: HintInjectedEvent): void {
         this.event_history.push(event);
         const window = ChatWindow.fromEvent(event);
 
@@ -28,7 +29,11 @@ export class HistoryManager {
         this.chat_history.get(window)!.push(event);
     }
 
-    addProcessedEvent(window: ChatWindow | null, events: any[], chat_node: ChatNode): void {
+    addProcessedEvent(
+        window: ChatWindow | null,
+        events: HintInjectedEvent[],
+        chat_node: ChatNode,
+    ): void {
         if (!this.window_history.has(window)) {
             this.window_history.set(window, new CircularQueue<ConsumedEvent>(10));
         }
@@ -45,7 +50,7 @@ export class HistoryManager {
         }
     }
 
-    addPretendProcessedEvent(window: ChatWindow | null, events: any[]): void {
+    addPretendProcessedEvent(window: ChatWindow | null, events: HintInjectedEvent[]): void {
         if (!this.window_history.has(window)) {
             this.window_history.set(window, new CircularQueue<ConsumedEvent>(10));
         }

@@ -1,3 +1,6 @@
+import { HintInjectedEvent } from "../types/event.ts";
+import { EVENT_HINT_MAP } from "../napcat/filter.ts";
+
 export class ChatWindow {
     static privateWindow: Record<string, ChatWindow> = {};
     static groupWindows: Record<string, ChatWindow> = {};
@@ -23,8 +26,11 @@ export class ChatWindow {
         return this.groupWindows[id];
     }
 
-    static fromEvent(event: { [key: string]: any }) {
-        if (event.group_id) {
+    static fromEvent(event: HintInjectedEvent) {
+        if (
+            event.hint == EVENT_HINT_MAP["notice.notify.poke.group"] ||
+            event.hint == EVENT_HINT_MAP["message.group.normal"]
+        ) {
             return this.group(String(event.group_id));
         } else if (event.user_id) {
             return this.private(String(event.user_id));

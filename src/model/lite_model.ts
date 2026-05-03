@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import CONFIG from "../data/config/config.ts";
-import { NapCatEvent } from "../types/event.ts";
+import { HintInjectedEvent } from "../types/event.ts";
 import { fullStripEvent, getModelHint, preStringifyEvent } from "../napcat/pre_stringify_event.ts";
 import workingMemory, { WorkingMemoryItem } from "./working_memory.ts";
 import { LlmJson } from "@typia/utils";
@@ -43,7 +43,7 @@ class LiteModel {
         });
     }
 
-    async processWorkingMemory(messages: NapCatEvent[], trace: string[]) {
+    async processWorkingMemory(messages: HintInjectedEvent[], trace: string[]) {
         const windowContext = await getModelHint(messages[0]);
         const currentWorkingMemory = workingMemory.list();
         const stripedMessages = await Promise.all(messages.map((msg) => fullStripEvent(msg)));
@@ -109,7 +109,7 @@ class LiteModel {
         };
     }
 
-    async extendFullMemorySearch(messages: NapCatEvent[], history: ConsumedEvent[]) {
+    async extendFullMemorySearch(messages: HintInjectedEvent[], history: ConsumedEvent[]) {
         const stripedMessages = [];
         const modelHistory: ChatNode[] = [];
         for (const event of history) {
@@ -163,7 +163,7 @@ class LiteModel {
         return contents;
     }
 
-    async extractMemory(messages: NapCatEvent[], trace: string[]) {
+    async extractMemory(messages: HintInjectedEvent[], trace: string[]) {
         const windowContext = await getModelHint(messages[0]);
         const stripedMessages = await Promise.all(messages.map((msg) => fullStripEvent(msg)));
         const model_messages: any[] = [{ role: "system", content: this.promptMemoryAdd }];

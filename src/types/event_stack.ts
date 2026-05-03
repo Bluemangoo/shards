@@ -92,7 +92,7 @@ export class EventStack<K, T> {
 
             while (true) {
                 const now = this._now();
-                let readyWindow: K | null = undefined as any;
+                let readyWindow: K | null = undefined as any; // undefined for none (null is key)
                 let found = false;
                 let nextWait: number = this._timeout;
                 let isNullCase = false;

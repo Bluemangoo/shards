@@ -1,6 +1,6 @@
 import db from "../data/database/db.ts";
 import { liteModel } from "./lite_model.ts";
-import { NapCatEvent } from "../types/event.ts";
+import { HintInjectedEvent } from "../types/event.ts";
 import { embeddedModel } from "./embedding_model.ts";
 import { ConsumedEvent } from "../data/database/history.ts";
 
@@ -10,7 +10,7 @@ export interface MemorySearchResult {
 }
 
 class LongTermMemory {
-    async addFromEvent(events: NapCatEvent[], trace: string[]) {
+    async addFromEvent(events: HintInjectedEvent[], trace: string[]) {
         const extracted = await liteModel.extractMemory(events, trace);
         for (const content of extracted) {
             await this.add(content);
@@ -55,7 +55,7 @@ class LongTermMemory {
         );
     }
 
-    async fullSearch(messages: NapCatEvent[], history: ConsumedEvent[]) {
+    async fullSearch(messages: HintInjectedEvent[], history: ConsumedEvent[]) {
         const searchPattern = await liteModel.extendFullMemorySearch(messages, history);
         const result: MemorySearchResult[] = [];
         for (const entry of searchPattern) {
