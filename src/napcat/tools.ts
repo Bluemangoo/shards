@@ -179,6 +179,18 @@ export const napcatTools = {
         "根据时间范围获取历史消息，其中可选的message_seq为起始消息序号，在上下文中可不填类型和id",
     ),
 
+    withdraw_message: toolHelper(
+        async (
+            p: {
+                message_id: number;
+            } & ToolArguments,
+        ) => {
+            await napcat.delete_msg({ message_id: p.message_id });
+        },
+        "撤回消息",
+        "按照消息id撤回一条消息，一般两分钟内可撤回，自己有群管理员权限可以无视，不知道能不能撤回可以先试一下",
+    ),
+
     get_chat_list: toolHelper(
         async (p: ToolArguments) => {
             const messages = await EventStore.get_distinct_message_events(20);
