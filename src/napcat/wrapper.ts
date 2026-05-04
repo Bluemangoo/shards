@@ -87,7 +87,3 @@ export const cached_get_forward_message = memoize(async (message_id: string | nu
         message_id: String(message_id),
     });
 });
-
-export const cached_get_login_info = memoize(async () => {
-    return await napcat.get_login_info();
-});

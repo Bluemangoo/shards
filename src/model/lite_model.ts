@@ -26,6 +26,7 @@ class LiteModel {
     promptMemoryFullSearch = "";
     promptMemoryAdd = "";
     promptDreaming = "";
+    temperature = 0.4
 
     constructor(
         baseUrl: string = CONFIG.liteModel.baseUrl,
@@ -65,6 +66,7 @@ class LiteModel {
             model: this.model,
             messages: model_messages,
             reasoning_effort: "low",
+            temperature: this.temperature,
         });
 
         console.log(response.choices[0].message);
@@ -133,6 +135,7 @@ class LiteModel {
             model: this.model,
             messages: model_messages,
             reasoning_effort: "low",
+            temperature: this.temperature,
         });
 
         console.log(response.choices[0].message);
@@ -180,6 +183,7 @@ class LiteModel {
             model: this.model,
             messages: model_messages,
             reasoning_effort: "medium",
+            temperature: this.temperature,
         });
         console.log(response.choices[0].message);
         const content = response.choices[0].message.content;
@@ -207,6 +211,7 @@ class LiteModel {
             model: this.model,
             messages: model_messages,
             reasoning_effort: "high",
+            temperature: this.temperature,
         });
         console.log(response.choices[0].message);
         const content = response.choices[0].message.content;

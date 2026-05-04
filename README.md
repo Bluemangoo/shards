@@ -59,6 +59,8 @@ create table long_term_memory
 `/prompt/sys.md` 要自己写，这是人物基础设定。
 `/prompt/hint.md` 要自己写，这是每次在消息后告诉主模型要做什么的。记得提醒它合法闭嘴权。
 
+`/prompt/` 目录下的其他 md 文件是一些基础的提示词模板，可以根据需要修改或扩展。
+
 ### 6. `pnpm run start`
 
 ## 架构
@@ -120,6 +122,19 @@ sequenceDiagram
             Core->>Memory: 存入长期记忆表 (pgvector)
         end
     end
+```
+
+## ignore file update
+
+```shell
+git update-index --assume-unchanged src/inject.ts
+git update-index --assume-unchanged prompt/dev.md
+git update-index --assume-unchanged prompt/dreaming.md
+git update-index --assume-unchanged prompt/image.md
+git update-index --assume-unchanged prompt/memory.add.md
+git update-index --assume-unchanged prompt/memory.full.search.md
+git update-index --assume-unchanged prompt/memory.search.md
+git update-index --assume-unchanged prompt/working.memory.md
 ```
 
 ## 附注

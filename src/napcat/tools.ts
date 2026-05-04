@@ -1,5 +1,5 @@
 import { ToolArguments, toolHelper } from "../types/mcp.ts";
-import { napcat } from "./client.ts";
+import { loginInfo, napcat } from "./client.ts";
 import { storeEvent } from "../main_loop/life_cycle.ts";
 import { downloadFileWithAutoExt, urlToDataUrl } from "../utils/net.ts";
 import { SendMessageSegment, Structs } from "node-napcat-ts";
@@ -9,7 +9,6 @@ import {
     cached_get_forward_message,
     cached_get_friend_list,
     cached_get_group_info,
-    cached_get_login_info,
     cached_get_stranger_display_name,
     cached_get_stranger_info,
 } from "./wrapper.ts";
@@ -252,7 +251,7 @@ export const napcatTools = {
                 user_id: number;
             } & ToolArguments,
         ) => {
-            const selfInfo = await cached_get_login_info();
+            const selfInfo = loginInfo.data!;
             let user;
             if (p.user_id == selfInfo.user_id) {
                 user = selfInfo;

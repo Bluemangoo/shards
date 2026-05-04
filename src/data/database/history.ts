@@ -15,9 +15,10 @@ export class ConsumedEvent {
 }
 
 export class HistoryManager {
-    public event_history: HintInjectedEvent[] = [];
-    public window_history: Map<ChatWindow | null, CircularQueue<ConsumedEvent>> = new Map();
-    public chat_history: Map<ChatWindow | null, HintInjectedEvent[]> = new Map();
+    capacity = 20;
+    event_history: HintInjectedEvent[] = [];
+    window_history: Map<ChatWindow | null, CircularQueue<ConsumedEvent>> = new Map();
+    chat_history: Map<ChatWindow | null, HintInjectedEvent[]> = new Map();
 
     addEvent(event: HintInjectedEvent): void {
         this.event_history.push(event);
@@ -35,7 +36,7 @@ export class HistoryManager {
         chat_node: ChatNode,
     ): void {
         if (!this.window_history.has(window)) {
-            this.window_history.set(window, new CircularQueue<ConsumedEvent>(10));
+            this.window_history.set(window, new CircularQueue<ConsumedEvent>(this.capacity));
         }
         if (!this.chat_history.has(window)) {
             this.chat_history.set(window, []);
@@ -52,7 +53,7 @@ export class HistoryManager {
 
     addPretendProcessedEvent(window: ChatWindow | null, events: HintInjectedEvent[]): void {
         if (!this.window_history.has(window)) {
-            this.window_history.set(window, new CircularQueue<ConsumedEvent>(10));
+            this.window_history.set(window, new CircularQueue<ConsumedEvent>(this.capacity));
         }
         if (!this.chat_history.has(window)) {
             this.chat_history.set(window, []);
@@ -71,8 +72,12 @@ export class HistoryManager {
         let l = this.window_history.get(window);
 
         if (!l) {
-            const loaded_events = await EventStore.get_window_events(window, undefined, 10);
-            l = new CircularQueue<ConsumedEvent>(10);
+            const loaded_events = await EventStore.get_window_events(
+                window,
+                undefined,
+                this.capacity,
+            );
+            l = new CircularQueue<ConsumedEvent>(this.capacity);
             this.window_history.set(window, l);
             for (const event of loaded_events) {
                 l.push(new ConsumedEvent(event, null));

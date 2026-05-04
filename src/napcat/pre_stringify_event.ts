@@ -4,6 +4,7 @@ import {
     cached_get_group_member_display_name,
     cached_get_group_member_info,
     cached_get_stranger_display_name,
+    cached_get_stranger_info,
 } from "./wrapper.ts";
 import { HintInjectedEvent, NapcatEvent } from "../types/event.ts";
 import { EVENT_HINT_MAP } from "./filter.ts";
@@ -106,11 +107,20 @@ export async function stripFullGroupMessage(
     >,
 ) {
     let isSelf = event.self_id == event.sender.user_id;
-    const senderInfo = await cached_get_group_member_info(event.sender.user_id, event.group_id);
+    let title: string | undefined = undefined;
+    try {
+        const senderInfo = await cached_get_group_member_info(event.sender.user_id, event.group_id);
+        title = senderInfo.title;
+    } catch (e) {
+        console.error(
+            `stripFullGroupMessage: Failed to get member info ${event.sender.user_id} in ${event.group_id}`,
+            e,
+        );
+    }
     let sender = {
         is_self: isSelf,
         ...event.sender,
-        title: senderInfo.title,
+        title,
     };
     return {
         time: event.time,
@@ -146,25 +156,40 @@ export async function getPrivateMessageModelHint(
         | {
               user_id: number;
               nickname: string;
-              ingroup_card: string;
+              remark?: string;
+              ingroup_card?: string;
               from?: ReturnType<typeof stripGroupInfo>;
           }
         | { user_id: number; nickname?: string; remark?: string };
     if (event.hint == EVENT_HINT_MAP["message.private.group"]) {
-        const u = await cached_get_group_member_info(event.user_id, event.group_id);
-        user = {
-            user_id: event.user_id,
-            nickname: u.nickname,
-            ingroup_card: u.card,
-            from: stripGroupInfo(await cached_get_group_info(event.group_id)),
-        };
+        try {
+            const u = await cached_get_group_member_info(event.user_id, event.group_id);
+            user = {
+                user_id: event.user_id,
+                nickname: u.nickname,
+                ingroup_card: u.card || undefined,
+                from: stripGroupInfo(await cached_get_group_info(event.group_id)),
+            };
+        } catch (e) {
+            console.error(
+                `getPrivateMessageModelHint Failed to get member info ${event.user_id} in ${event.group_id}`,
+                e,
+            );
+            const u = await cached_get_stranger_info(event.user_id);
+            user = {
+                user_id: event.user_id,
+                remark: u.remark || undefined,
+                nickname: u.nickname,
+                from: stripGroupInfo(await cached_get_group_info(event.group_id)),
+            };
+        }
     } else {
         const u = await cached_get_friend_info(event.user_id);
         if (u) {
             user = {
                 user_id: event.user_id,
                 nickname: u.nickname,
-                remark: u.remark,
+                remark: u.remark || undefined,
             };
         } else {
             user = {
@@ -222,22 +247,41 @@ export async function injectAt(e: HintInjectedEvent) {
                     (<any>seg.data).include_self = true;
                     (<any>seg.data).is_self = false;
                 } else {
-                    const userInfo = await cached_get_group_member_info(
-                        seg.data.qq,
-                        event.group_id,
-                    );
-                    const displayName = await cached_get_group_member_display_name(
-                        seg.data.qq,
-                        event.group_id,
-                    );
-                    (<any>seg.data).stringified = `@${displayName}`;
-                    (<any>seg.data).user = {
-                        user_id: userInfo.user_id,
-                        nickname: userInfo.nickname,
-                        card: userInfo.card,
-                    };
-                    (<any>seg.data).include_self = (<any>seg.data).is_self =
-                        seg.data.qq == String(event.self_id);
+                    const strangerInfo = await cached_get_stranger_info(seg.data.qq);
+                    try {
+                        const userInfo = await cached_get_group_member_info(
+                            seg.data.qq,
+                            event.group_id,
+                        );
+                        const displayName = await cached_get_group_member_display_name(
+                            seg.data.qq,
+                            event.group_id,
+                        );
+                        (<any>seg.data).stringified = `@${displayName}`;
+                        (<any>seg.data).user = {
+                            user_id: userInfo.user_id,
+                            nickname: userInfo.nickname,
+                            card: userInfo.card || undefined,
+                            remark: strangerInfo.remark || undefined,
+                        };
+                        (<any>seg.data).include_self = (<any>seg.data).is_self =
+                            seg.data.qq == String(event.self_id);
+                    } catch (e) {
+                        console.error(
+                            `injectAt Failed to get member info ${seg.data.qq} in ${event.group_id}`,
+                            e,
+                        );
+                        const displayName =
+                            (await cached_get_stranger_display_name(seg.data.qq)) || seg.data.qq;
+                        (<any>seg.data).stringified = `@${displayName}`;
+                        (<any>seg.data).user = {
+                            user_id: strangerInfo.user_id,
+                            nickname: strangerInfo.nickname,
+                            remark: strangerInfo.remark || undefined,
+                        };
+                        (<any>seg.data).include_self = (<any>seg.data).is_self =
+                            seg.data.qq == String(event.self_id);
+                    }
                 }
             }
         }
@@ -245,51 +289,67 @@ export async function injectAt(e: HintInjectedEvent) {
 }
 
 export async function preStringifyEvent(event: HintInjectedEvent) {
-    let postEvent;
-    switch (event.hint) {
-        case EVENT_HINT_MAP["notice.notify.poke.friend"]:
-        case EVENT_HINT_MAP["notice.notify.poke.group"]:
-            postEvent = await stripPoke(event);
-            break;
-        case EVENT_HINT_MAP["message.group.normal"]:
-            await injectAt(event);
-            break;
-        default:
-            postEvent = event;
+    try {
+        let postEvent;
+        switch (event.hint) {
+            case EVENT_HINT_MAP["notice.notify.poke.friend"]:
+            case EVENT_HINT_MAP["notice.notify.poke.group"]:
+                postEvent = await stripPoke(event);
+                break;
+            case EVENT_HINT_MAP["message.group.normal"]:
+                postEvent = event;
+                await injectAt(event);
+                break;
+            default:
+                postEvent = event;
+        }
+        return postEvent;
+    } catch (e) {
+        console.error("Failed to stripe event", event, e);
+        return event;
     }
-    return postEvent;
 }
 
 export async function fullStripEvent(event: HintInjectedEvent) {
-    let postEvent;
-    postEvent = await preStringifyEvent(event);
-    switch (event.hint) {
-        case EVENT_HINT_MAP["message.group.normal"]:
-            postEvent = await stripFullGroupMessage(event);
-            break;
-        case EVENT_HINT_MAP["message.private.friend"]:
-        case EVENT_HINT_MAP["message.private.group"]:
-            postEvent = await stripFullPrivateMessage(event);
-            break;
+    try {
+        let postEvent;
+        postEvent = await preStringifyEvent(event);
+        switch (event.hint) {
+            case EVENT_HINT_MAP["message.group.normal"]:
+                postEvent = await stripFullGroupMessage(event);
+                break;
+            case EVENT_HINT_MAP["message.private.friend"]:
+            case EVENT_HINT_MAP["message.private.group"]:
+                postEvent = await stripFullPrivateMessage(event);
+                break;
+        }
+        const dateInjected: typeof postEvent & { formatted_time: string } = postEvent as any;
+        const date = new Date(event.time * 1000);
+        dateInjected.formatted_time = date.toLocaleDateString() + " " + date.toLocaleTimeString();
+        return dateInjected;
+    } catch (e) {
+        console.error("Failed to full stripe event", event, e);
+        return event;
     }
-    const dateInjected: typeof postEvent & { formatted_time: string } = postEvent as any;
-    const date = new Date(event.time * 1000);
-    dateInjected.formatted_time = date.toLocaleDateString() + " " + date.toLocaleTimeString();
-    return dateInjected;
 }
 
 export async function getModelHint<T extends HintInjectedEvent>(event: T) {
-    switch (event.hint) {
-        case EVENT_HINT_MAP["message.group.normal"]:
-            return await getGroupMessageModelHint(event);
-        case EVENT_HINT_MAP["message.private.friend"]:
-        case EVENT_HINT_MAP["message.private.group"]:
-            return await getPrivateMessageModelHint(event);
-        case EVENT_HINT_MAP["notice.notify.poke.friend"]:
-            return await getPrivatePokeModelHint(event);
-        case EVENT_HINT_MAP["notice.notify.poke.group"]:
-            return await getGroupPokeModelHint(event);
-        default:
-            return null;
+    try {
+        switch (event.hint) {
+            case EVENT_HINT_MAP["message.group.normal"]:
+                return await getGroupMessageModelHint(event);
+            case EVENT_HINT_MAP["message.private.friend"]:
+            case EVENT_HINT_MAP["message.private.group"]:
+                return await getPrivateMessageModelHint(event);
+            case EVENT_HINT_MAP["notice.notify.poke.friend"]:
+                return await getPrivatePokeModelHint(event);
+            case EVENT_HINT_MAP["notice.notify.poke.group"]:
+                return await getGroupPokeModelHint(event);
+            default:
+                return null;
+        }
+    } catch (e) {
+        console.error("Failed to get model hint", event, e);
+        return null;
     }
 }
