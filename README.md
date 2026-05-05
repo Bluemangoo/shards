@@ -144,3 +144,5 @@ git update-index --assume-unchanged prompt/working.memory.md
 `/data/temp_stickers` 可以直接清理。
 
 看起来莫名其妙的地方很多是历史遗留问题，有兴趣可以pr一下改了。
+
+关于记忆可以看一下[这篇](https://docs.google.com/document/d/1jck_Y1K58rwb2v5hJlBckE8fqpoWztwqL7_Ey6wQwdI/edit?usp=sharing)。ai写ai用。

@@ -157,15 +157,27 @@ class MainModel {
         model_messages.push({ role: "user", content: JSON.stringify(new_messages_payload) });
 
         console.log("Requesting main model", model_messages);
+        let firstCalled = true;
 
         while (true) {
-            const response = await this.client.chat.completions.create({
-                model: this.model,
-                messages: model_messages,
-                tools: napcatToolDefined as any,
-                tool_choice: "auto",
-                reasoning_effort: "medium",
-            });
+            let response;
+            try {
+                response = await this.client.chat.completions.create({
+                    model: this.model,
+                    messages: model_messages,
+                    tools: napcatToolDefined as any,
+                    tool_choice: "auto",
+                    reasoning_effort: "medium",
+                });
+            } catch (e) {
+                if (firstCalled) {
+                    throw e;
+                }
+                console.error(e);
+                trace.push("!!Uncommon thinking stop, maybe not finished.");
+                break;
+            }
+            firstCalled = false;
 
             const response_message = response.choices[0].message;
             console.log(response_message);
@@ -255,6 +267,7 @@ class MainModel {
                 }
             }
         }
+        return trace;
     }
 }
 

@@ -1,5 +1,6 @@
 /tmp
 /out-tsc
+.DS_Store
 
 /node_modules
 npm-debug.log*
@@ -17,3 +18,4 @@ yarn-error.log*
 # 敏感信息
 /prompt/sys.md
 /prompt/hint.md
+/prompt/
