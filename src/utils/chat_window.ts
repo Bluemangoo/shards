@@ -29,7 +29,9 @@ export class ChatWindow {
     static fromEvent(event: HintInjectedEvent) {
         if (
             event.hint == EVENT_HINT_MAP["notice.notify.poke.group"] ||
-            event.hint == EVENT_HINT_MAP["message.group.normal"]
+            event.hint == EVENT_HINT_MAP["message.group.normal"] ||
+            event.hint == EVENT_HINT_MAP["notice.group_ban.ban"] ||
+            event.hint == EVENT_HINT_MAP["notice.group_ban.lift_ban"]
         ) {
             return this.group(String(event.group_id));
         } else if (event.user_id) {

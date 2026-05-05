@@ -9,6 +9,8 @@ export const EVENT_HINT_MAP = {
     "message.private.group": "temporary_private_message",
     "notice.notify.poke.friend": "private_poke",
     "notice.notify.poke.group": "group_poke",
+    "notice.group_ban.ban": "group_ban",
+    "notice.group_ban.lift_ban": "group_lift_ban",
 } as const;
 
 export function injectMsgHint(event: NapcatResult["get_msg"]) {
@@ -52,4 +54,10 @@ export function registerNapcat(napcat: NCWebsocket) {
     napcat.on("notice.notify.poke.group", (e) => {
         push(e as any, EVENT_HINT_MAP["notice.notify.poke.group"]);
     });
+    napcat.on("notice.group_ban.ban", (e)=>{
+        push(e, EVENT_HINT_MAP["notice.group_ban.ban"]);
+    })
+    napcat.on("notice.group_ban.lift_ban", (e)=>{
+        push(e, EVENT_HINT_MAP["notice.group_ban.lift_ban"]);
+    })
 }

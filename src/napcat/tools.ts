@@ -1,6 +1,6 @@
 import { ToolArguments, toolHelper } from "../types/mcp.ts";
 import { loginInfo, napcat } from "./client.ts";
-import { storeEvent } from "../main_loop/life_cycle.ts";
+import { expectedEvents, storeEvent } from "../main_loop/life_cycle.ts";
 import { downloadFileWithAutoExt, urlToDataUrl } from "../utils/net.ts";
 import { SendMessageSegment, Structs } from "node-napcat-ts";
 import { fullStripEvent, preStringifyEvent } from "./pre_stringify_event.ts";
@@ -414,6 +414,40 @@ export const napcatTools = {
         },
         "删除并拉黑好友",
         "根据id删除并拉黑好友（需要是好友）",
+    ),
+
+    mute: toolHelper(
+        async (p: { user_id: number; group_id?: number; duration: number } & ToolArguments) => {
+            let gid = p.group_id;
+            if (p.context.window?.type === "group") {
+                gid = gid || Number(p.context.window.id);
+            }
+            if (gid == null) {
+                throw new Error("Missing group_id");
+            }
+            const excepted = {
+                ends: Date.now() + 30 * 1000,
+                matches: {
+                    notice_type: "group_ban",
+                    group_id: gid,
+                    user_id: p.user_id,
+                    operator_id: loginInfo.data?.user_id,
+                },
+            };
+            expectedEvents.add(excepted);
+            try {
+                return await napcat.set_group_ban({
+                    duration: p.duration,
+                    group_id: gid,
+                    user_id: p.user_id,
+                });
+            } catch (error) {
+                expectedEvents.delete(excepted);
+                throw error;
+            }
+        },
+        "群禁言",
+        "禁言一个人，duration单位是秒，为0则是解禁，在上下文中可不填group_id，需要自己是群管理，不确定可以先获取自己的群成员信息查一下",
     ),
 
     search_memory: toolHelper(

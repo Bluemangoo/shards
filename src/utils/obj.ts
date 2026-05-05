@@ -4,3 +4,23 @@ export function requireNonNull<T>(o: T | undefined | null, e?: string): T {
     }
     return o;
 }
+
+export function deepContains(sup: any, sub: any): boolean {
+    if (sup === sub) return true;
+
+    if (typeof sub !== "object" || sub === null || typeof sup !== "object" || sup === null) {
+        return false;
+    }
+
+    if (Array.isArray(sub)) {
+        if (!Array.isArray(sup) || sub.length !== sup.length) return false;
+        return sub.every((item, index) => deepContains(sup[index], item));
+    }
+
+    return Object.keys(sub).every((key) => {
+        if (!Object.prototype.hasOwnProperty.call(sup, key)) {
+            return false;
+        }
+        return deepContains(sup[key], sub[key]);
+    });
+}

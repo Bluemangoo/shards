@@ -8,12 +8,30 @@ import { mainModel } from "../model/main_model.ts";
 import { liteModel } from "../model/lite_model.ts";
 import { longTermMemory } from "../model/long_term_memory.ts";
 import { loginInfo } from "../napcat/client.ts";
+import { deepContains } from "../utils/obj.ts";
 
 export async function storeEvent(event: HintInjectedEvent) {
     await EventStore.push_event(event);
 }
 
+export type ExpectedEvent = {
+    ends: number;
+    matches: Record<string, any>;
+};
+export const expectedEvents = new Set<ExpectedEvent>();
+
 function shouldIgnore(event: HintInjectedEvent) {
+    const now = Date.now();
+    for (const e of expectedEvents) {
+        if (e.ends < now) {
+            expectedEvents.delete(e);
+            continue;
+        }
+        if (deepContains(event, e)) {
+            expectedEvents.delete(e);
+            return true;
+        }
+    }
     if (event.sub_type == "poke") {
         return event.sender_id == event.self_id;
     }

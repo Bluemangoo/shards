@@ -10,6 +10,7 @@ import { HintInjectedEvent, NapcatEvent } from "../types/event.ts";
 import { EVENT_HINT_MAP } from "./filter.ts";
 import { GroupMessage } from "node-napcat-ts";
 import { NapcatResult } from "../types/napcat_api.ts";
+import { stringifyDurationSeconds } from "../utils/time.ts";
 
 export function stripGroupInfo(groupInfo: NapcatResult["get_group_info"]) {
     return {
@@ -72,7 +73,39 @@ export async function stripPoke(
         group_id: groupId,
         target_id: event.target_id,
         sender_id: event.sender_id,
-        stringified_message: stringified_message,
+        stringified_message,
+    };
+}
+
+export async function stripBan(
+    event: Extract<
+        HintInjectedEvent,
+        {
+            hint: (typeof EVENT_HINT_MAP)["notice.group_ban.ban" | "notice.group_ban.lift_ban"];
+        }
+    >,
+) {
+    let userName: string;
+    let opName: string;
+    const user1_is_self = event.user_id == event.self_id;
+    const user2_is_self = event.operator_id == event.self_id;
+
+    userName = user1_is_self
+        ? "你"
+        : await cached_get_group_member_display_name(event.user_id, event.group_id);
+    opName = user2_is_self
+        ? "你"
+        : await cached_get_group_member_display_name(event.operator_id, event.group_id);
+    let stringified_message = `${userName} 被 ${opName} `;
+    if (event.sub_type == "ban") {
+        const timeString = stringifyDurationSeconds(event.duration);
+        stringified_message += `禁言了 ${timeString}`;
+    } else {
+        stringified_message += "解除禁言";
+    }
+    return {
+        ...event,
+        stringified_message,
     };
 }
 
@@ -136,7 +169,10 @@ export async function getGroupMessageModelHint(
     event: Extract<
         HintInjectedEvent,
         {
-            hint: (typeof EVENT_HINT_MAP)["message.group.normal"];
+            hint: (typeof EVENT_HINT_MAP)[
+                | "message.group.normal"
+                | "notice.group_ban.ban"
+                | "notice.group_ban.lift_ban"];
         }
     >,
 ) {
@@ -296,6 +332,10 @@ export async function preStringifyEvent(event: HintInjectedEvent) {
             case EVENT_HINT_MAP["notice.notify.poke.group"]:
                 postEvent = await stripPoke(event);
                 break;
+            case EVENT_HINT_MAP["notice.group_ban.ban"]:
+            case EVENT_HINT_MAP["notice.group_ban.lift_ban"]:
+                postEvent = await stripBan(event);
+                break;
             case EVENT_HINT_MAP["message.group.normal"]:
                 postEvent = event;
                 await injectAt(event);
@@ -337,6 +377,8 @@ export async function getModelHint<T extends HintInjectedEvent>(event: T) {
     try {
         switch (event.hint) {
             case EVENT_HINT_MAP["message.group.normal"]:
+            case EVENT_HINT_MAP["notice.group_ban.ban"]:
+            case EVENT_HINT_MAP["notice.group_ban.lift_ban"]:
                 return await getGroupMessageModelHint(event);
             case EVENT_HINT_MAP["message.private.friend"]:
             case EVENT_HINT_MAP["message.private.group"]:
