@@ -2,6 +2,7 @@ import fs from "node:fs";
 import db from "./db.ts";
 import { downloadFileWithAutoExt } from "../../utils/net.ts";
 import { imageModel } from "../../model/image_model.ts";
+import { napcat } from "../../napcat/client.ts";
 
 export interface ImageDescriptionData {
     id: number; // <-- 新增的 description id
@@ -27,11 +28,23 @@ class Sticker {
         if (exist) {
             return exist;
         }
-        const fileName = await downloadFileWithAutoExt(
-            url,
-            fileId.split(".")[0],
-            process.cwd() + "/data/temp_stickers",
-        );
+        let fileName;
+        try {
+            fileName = await downloadFileWithAutoExt(
+                url,
+                fileId.split(".")[0],
+                process.cwd() + "/data/temp_stickers",
+            );
+        } catch (e) {
+            const u = URL.parse(url);
+            const id = u?.searchParams.get("fileid") || fileId;
+            const f = await napcat.get_image({ file: id });
+            fileName = await downloadFileWithAutoExt(
+                f.url,
+                fileId.split(".")[0],
+                process.cwd() + "/data/temp_stickers",
+            );
+        }
         const ext = fileName.split(".").pop()!;
         const b64 = fs.readFileSync(process.cwd() + "/data/temp_stickers/" + fileName, {
             encoding: "base64",

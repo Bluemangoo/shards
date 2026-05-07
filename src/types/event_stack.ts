@@ -29,6 +29,7 @@ export class EventStack<K, T> {
     private readonly _countThreshold: number;
     private readonly _timeout: number; // s
     private _condition = new AsyncCondition();
+    private forceNext = false;
 
     constructor(countThreshold: number = 10, timeoutSeconds: number = 60.0) {
         this._countThreshold = countThreshold;
@@ -37,6 +38,11 @@ export class EventStack<K, T> {
 
     private _now() {
         return performance.now() / 1000;
+    }
+
+    next() {
+        this.forceNext = true;
+        this._condition.notifyAll();
     }
 
     repush(window: K | null, events: T[]): void {
@@ -111,11 +117,13 @@ export class EventStack<K, T> {
                     const isForced = this._forceFlush.has(window);
 
                     if (
-                        elapsed > 5 &&
-                        (stack.length >= this._countThreshold ||
-                            elapsed >= this._timeout ||
-                            isForced)
+                        this.forceNext ||
+                        (elapsed > 3 &&
+                            (stack.length >= this._countThreshold ||
+                                elapsed >= this._timeout ||
+                                isForced))
                     ) {
+                        this.forceNext = false;
                         readyWindow = window;
                         found = true;
                         break;
@@ -149,7 +157,7 @@ export class EventStack<K, T> {
                     break;
                 }
 
-                await this._condition.wait(Math.max(0, nextWait * 1000));
+                await this._condition.wait(Math.max(0, Math.min(nextWait, 3) * 1000));
             }
         }
     }

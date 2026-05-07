@@ -55,7 +55,11 @@ class LongTermMemory {
         );
     }
 
-    async fullSearch(messages: HintInjectedEvent[], history: ConsumedEvent[]) {
+    async fullSearch(
+        messages: HintInjectedEvent[],
+        history: ConsumedEvent[],
+        extras: string[] = [],
+    ) {
         const searchPattern = await liteModel.extendFullMemorySearch(messages, history);
         const result: MemorySearchResult[] = [];
         for (const entry of searchPattern) {
@@ -68,7 +72,21 @@ class LongTermMemory {
                 )),
             );
         }
-        return [...new Map(result.map((item) => [item.content, item])).values()].sort(
+        for (const extra of extras) {
+            const embeddings = await embeddedModel.createEmbedding([extra]);
+            result.push(
+                ...(await this.hybridSearch(
+                    embeddings.data.map((e) => e.embedding),
+                    extra,
+                    50,
+                )),
+            );
+        }
+        return this.sortResults(result);
+    }
+
+    sortResults(results: MemorySearchResult[]) {
+        return [...new Map(results.map((item) => [item.content, item])).values()].sort(
             (a, b) => Number(a.created_at) - Number(b.created_at),
         );
     }
@@ -85,11 +103,9 @@ class LongTermMemory {
                  vector_search AS (SELECT l.id,
                                           l.content,
                                           l.created_at,
-                                          -- 核心魔法：算记忆跟所有候选向量的距离，取最小的那个距离来做排名！
                                           ROW_NUMBER() OVER (ORDER BY MIN(l.embedding <=> u.emb)) as rank
                                    FROM long_term_memory l
                                             CROSS JOIN unnested_embeddings u
-                                   -- 去掉了 type 和 metadata，严格匹配表结构
                                    GROUP BY l.id, l.content, l.created_at
                                    HAVING MIN(l.embedding <=> u.emb) < 0.45
                                    ORDER BY MIN(l.embedding <=> u.emb)
@@ -113,7 +129,6 @@ class LongTermMemory {
             LIMIT $3;
         `;
 
-        // 组装 JSON 数组字符串，适配 json_array_elements_text
         const embeddingsJson = JSON.stringify(queryEmbeddings.map((arr) => JSON.stringify(arr)));
 
         const { rows } = await db().query(query, [embeddingsJson, queryKeywords, limit]);
@@ -121,7 +136,7 @@ class LongTermMemory {
         // 返回时把时间和内容一起带出去
         return rows.map((r) => ({
             content: r.content,
-            created_at: r.created_at,
+            created_at: new Date(r.created_at),
         }));
     }
 }

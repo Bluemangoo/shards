@@ -361,12 +361,21 @@ export const napcatTools = {
         async (
             p: {
                 image_url: string;
+                file_id?: string;
             } & ToolArguments,
         ) => {
-            return new ImageOutput(await urlToDataUrl(p.image_url));
+            try {
+                return new ImageOutput(await urlToDataUrl(p.image_url));
+            } catch (e) {
+                if (p.file_id != null) {
+                    const f = await napcat.get_image({ file: p.file_id });
+                    return new ImageOutput(await urlToDataUrl(f.url));
+                }
+                throw e;
+            }
         },
         "读取图片",
-        "根据图片 URL 读取图片内容，返回图片",
+        "根据图片 URL 读取图片内容，返回图片。有file_id可以一起传进来，保险一点。",
     ),
 
     download_file: toolHelper(
@@ -461,10 +470,10 @@ export const napcatTools = {
             for (const result of r) {
                 unwrap.push(...result);
             }
-            return unwrap;
+            return longTermMemory.sortResults(unwrap);
         },
         "在记忆中搜索",
-        "根据句子在记忆中搜索。请不要吝啬使用",
+        "根据句子在记忆中搜索。每个查询一个字符串，请不要吝啬使用。",
     ),
 
     list_stickers: toolHelper(
@@ -595,7 +604,15 @@ export const napcatTools = {
 
             const message = await napcat.get_msg({ message_id: result.message_id });
             if (needUpdate && message.message[0].type == "image") {
-                await sticker.updateStickerFileId(s.id, s.file_id, message.message[0].data.file);
+                try {
+                    await sticker.updateStickerFileId(
+                        s.id,
+                        s.file_id,
+                        message.message[0].data.file,
+                    );
+                } catch (e) {
+                    console.error(`Failed to update file id for sticker ${s.id}`, e);
+                }
             }
 
             await storeEvent(injectMsgHint(message));

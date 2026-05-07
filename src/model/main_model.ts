@@ -56,11 +56,16 @@ class MainModel {
             { role: "system", content: this.prompt_sys },
         ];
 
+        const windowContext = await getModelHint(messages[0]);
         const memoryAndSticker: Promise<void>[] = [];
         memoryAndSticker.push(
             (async () => {
                 try {
-                    const memory = await longTermMemory.fullSearch(messages, history);
+                    const searchExtra: string[] = [];
+                    if (windowContext?.type == "群聊" && (<any>windowContext).group_name != null) {
+                        searchExtra.push((<any>windowContext).group_name);
+                    }
+                    const memory = await longTermMemory.fullSearch(messages, history, searchExtra);
                     console.log("Found", memory.length, "relevant long-term memory items");
                     model_messages.push({
                         role: "system",
@@ -98,9 +103,7 @@ class MainModel {
         );
         await Promise.all(memoryAndSticker);
 
-        const model_history: ChatNode[] = [];
         const trace: string[] = [];
-        const history_messages: any[] = [];
         const currentWorkingMemory = workingMemory.list();
         const wm = currentWorkingMemory
             .sort((a, b) => a.lastAccessed - b.lastAccessed)
@@ -112,7 +115,6 @@ class MainModel {
                 };
             });
         const hints: any[] = [{ type: "hint", remark: "当前工作记忆", workingMemory: wm }];
-        const windowContext = await getModelHint(messages[0]);
         if (windowContext) {
             hints.push({ type: "hint", remark: "当前聊天窗口", windowContext });
         }
@@ -129,9 +131,24 @@ class MainModel {
         });
 
         // 处理历史记录
+        let model_history: ChatNode | null = null;
+        let history_messages: any[] = [];
         for (const event of history) {
-            if (event.chat_node && !model_history.includes(event.chat_node)) {
-                model_history.push(event.chat_node);
+            if (event.chat_node && model_history != event.chat_node) {
+                if (history_messages.length > 0) {
+                    model_messages.push({
+                        role: "user",
+                        content: JSON.stringify(history_messages),
+                    });
+                }
+                if (model_history != null) {
+                    model_messages.push({
+                        role: "assistant",
+                        content: JSON.stringify(model_history),
+                    });
+                }
+                history_messages = [];
+                model_history = event.chat_node;
             }
             history_messages.push({
                 type: "history_message",
@@ -139,10 +156,18 @@ class MainModel {
             });
         }
 
-        model_messages.push({ role: "user", content: JSON.stringify(history_messages) });
-
-        for (const node of model_history) {
-            model_messages.push({ role: "assistant", content: JSON.stringify(node.trace) });
+        // push last part
+        if (history_messages.length > 0) {
+            model_messages.push({
+                role: "user",
+                content: JSON.stringify(history_messages),
+            });
+        }
+        if (model_history != null) {
+            model_messages.push({
+                role: "assistant",
+                content: JSON.stringify(model_history),
+            });
         }
 
         const new_messages_payload: any[] = [];
@@ -245,7 +270,13 @@ class MainModel {
                         tool_result = JSON.stringify(tool_result);
                     }
                 } catch (e) {
-                    tool_result = `error: ${e}`;
+                    let str;
+                    if (e instanceof Error) {
+                        str = e.toString();
+                    } else {
+                        str = JSON.stringify(e);
+                    }
+                    tool_result = `error: ${str}`;
                 }
 
                 trace.push(`Tool result: ${String(tool_result).slice(0, 256)}`);

@@ -5,6 +5,7 @@ import { loadPrompts as loadMainPrompts, mainModel } from "../model/main_model.t
 import { liteModel, loadPrompts as loadLitePrompts } from "../model/lite_model.ts";
 import { imageModel, loadPrompts as loadImagePrompts } from "../model/image_model.ts";
 import { loginInfo, napcat } from "../napcat/client.ts";
+import { eventStack } from "../main.ts";
 
 export function consoleLoop() {
     const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -33,7 +34,9 @@ export function consoleLoop() {
         if (text === "relogin") {
             try {
                 const loginInfo = await napcat.get_login_info();
-                console.log(`Current login ${loginInfo.nickname}(${loginInfo.user_id}, now logout)`);
+                console.log(
+                    `Current login ${loginInfo.nickname}(${loginInfo.user_id}, now logout)`,
+                );
                 await napcat.disconnect();
             } catch (e) {
                 // expected error
@@ -42,6 +45,10 @@ export function consoleLoop() {
             const info = await napcat.get_login_info();
             loginInfo.data = info;
             console.log(`Napcat connected: ${info.nickname} (${info.user_id})`);
+        }
+
+        if (text === "next") {
+            eventStack.next();
         }
     });
 

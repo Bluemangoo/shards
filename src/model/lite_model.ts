@@ -6,6 +6,7 @@ import workingMemory, { WorkingMemoryItem } from "./working_memory.ts";
 import { LlmJson } from "@typia/utils";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
 import { readPrompt } from "../utils/file.ts";
+import { mainModel } from "./main_model.ts";
 
 type SearchExtendedAnswer = {
     keywords: string | string[];
@@ -26,7 +27,7 @@ class LiteModel {
     promptMemoryFullSearch = "";
     promptMemoryAdd = "";
     promptDreaming = "";
-    temperature = 0.4
+    temperature = 0.4;
 
     constructor(
         baseUrl: string = CONFIG.liteModel.baseUrl,
@@ -54,6 +55,7 @@ class LiteModel {
             data.push({ type: "当前聊天窗口", windowContext });
         }
         data.push(
+            { type: "设定(无需加入记忆)", sysPrompt: mainModel.prompt_sys },
             { type: "当前记忆", currentWorkingMemory },
             { type: "当前消息", messages: stripedMessages },
             { type: "模型思考轨迹", trace },
@@ -174,7 +176,11 @@ class LiteModel {
         if (windowContext) {
             data.push({ type: "当前聊天窗口", windowContext });
         }
-        data.push({ type: "当前消息", messages: stripedMessages }, { type: "模型思考轨迹", trace });
+        data.push(
+            { type: "设定(无需加入记忆)", sysPrompt: mainModel.prompt_sys },
+            { type: "当前消息", messages: stripedMessages },
+            { type: "模型思考轨迹", trace },
+        );
         model_messages.push({
             role: "user",
             content: JSON.stringify(data),
