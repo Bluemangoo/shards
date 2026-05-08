@@ -24,6 +24,37 @@ class EmbeddingModel {
     async createEmbedding(input: string[]) {
         return this.client.embeddings.create({ input, model: this.model });
     }
+
+    createTask() {
+        let batch = {
+            input: [] as string[],
+            promise: null as Promise<OpenAI.Embeddings.Embedding[]> | null,
+        };
+
+        const add = (i: string[]) => {
+            const currentBatch = batch;
+
+            const start = currentBatch.input.length;
+            currentBatch.input.push(...i);
+            const end = currentBatch.input.length;
+
+            return async () => {
+                if (!currentBatch.promise) {
+                    batch = { input: [], promise: null };
+
+                    currentBatch.promise = this.createEmbedding(currentBatch.input).then(
+                        (res) => res.data,
+                    );
+                }
+
+                const data = await currentBatch.promise;
+
+                return data.slice(start, end);
+            };
+        };
+
+        return { add };
+    }
 }
 
 const embeddedModel = new EmbeddingModel();

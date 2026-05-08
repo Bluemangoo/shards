@@ -36,14 +36,9 @@ class Sticker {
                 process.cwd() + "/data/temp_stickers",
             );
         } catch (e) {
-            const u = URL.parse(url);
-            const id = u?.searchParams.get("fileid") || fileId;
-            const f = await napcat.get_image({ file: id });
-            fileName = await downloadFileWithAutoExt(
-                f.url,
-                fileId.split(".")[0],
-                process.cwd() + "/data/temp_stickers",
-            );
+            const f = await napcat.get_image({ file: fileId });
+            fileName = f.file_name;
+            fs.copyFileSync(f.file, process.cwd() + "/data/temp_stickers" + "/" + f.file_name);
         }
         const ext = fileName.split(".").pop()!;
         const b64 = fs.readFileSync(process.cwd() + "/data/temp_stickers/" + fileName, {

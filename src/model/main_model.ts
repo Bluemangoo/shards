@@ -64,6 +64,12 @@ class MainModel {
                     const searchExtra: string[] = [];
                     if (windowContext?.type == "群聊" && (<any>windowContext).group_name != null) {
                         searchExtra.push((<any>windowContext).group_name);
+                    } else if (
+                        windowContext?.type == "私聊" &&
+                        (<any>windowContext).user != null &&
+                        (<any>windowContext).user.nickname != null
+                    ) {
+                        searchExtra.push((<any>windowContext).user.nickname);
                     }
                     const memory = await longTermMemory.fullSearch(messages, history, searchExtra);
                     console.log("Found", memory.length, "relevant long-term memory items");

@@ -52,7 +52,7 @@ export async function stripPoke(
             : (await cached_get_stranger_display_name(event.sender_id)) || String(event.sender_id);
         name2 = user2_is_self
             ? "你"
-            : (await cached_get_stranger_display_name(event.sender_id)) || String(event.target_id);
+            : (await cached_get_stranger_display_name(event.target_id)) || String(event.target_id);
     }
     let cnt = 0;
     let stringified_message = "";

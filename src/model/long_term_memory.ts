@@ -2,7 +2,10 @@ import db from "../data/database/db.ts";
 import { liteModel } from "./lite_model.ts";
 import { HintInjectedEvent } from "../types/event.ts";
 import { embeddedModel } from "./embedding_model.ts";
-import { ConsumedEvent } from "../data/database/history.ts";
+import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
+import { EVENT_HINT_MAP } from "../napcat/filter.ts";
+import { stripPoke } from "../napcat/pre_stringify_event.ts";
+import { cached_get_group_member_info, cached_get_stranger_info } from "../napcat/wrapper.ts";
 
 export interface MemorySearchResult {
     content: string;
@@ -60,28 +63,114 @@ class LongTermMemory {
         history: ConsumedEvent[],
         extras: string[] = [],
     ) {
-        const searchPattern = await liteModel.extendFullMemorySearch(messages, history);
+        const names = new Map<number, Set<string>>();
+        // 防止全表搜
+        if (extras.length == 0) {
+            extras = ["记忆 设定"];
+        }
+
         const result: MemorySearchResult[] = [];
-        for (const entry of searchPattern) {
-            const embeddings = await embeddedModel.createEmbedding(entry.hypothetical_answers);
-            result.push(
-                ...(await this.hybridSearch(
-                    embeddings.data.map((e) => e.embedding),
-                    entry.keywords,
-                    50,
-                )),
-            );
+        const embeddingTasker = embeddedModel.createTask();
+        const search = (hy: string[], kw: string) => {
+            const createEmbeddings = embeddingTasker.add(hy);
+            return async () => {
+                const embeddings = await createEmbeddings();
+                result.push(
+                    ...(await this.hybridSearch(
+                        embeddings.map((e) => e.embedding),
+                        kw,
+                        30,
+                    )),
+                );
+            };
+        };
+
+        let fullMessageStr = "";
+        const addId = async (uid: number, gid?: number) => {
+            try {
+                if (names.has(uid)) {
+                    return;
+                }
+                const userInfo = await cached_get_stranger_info(uid);
+                if (!names.has(uid)) {
+                    names.set(uid, new Set<string>());
+                }
+                names.get(uid)!.add(userInfo.nickname);
+                names.get(uid)!.add(userInfo.remark);
+                if (gid != null) {
+                    const memberInfo = await cached_get_group_member_info(uid, gid);
+                    if (!names.has(uid)) {
+                        names.set(uid, new Set<string>());
+                    }
+                    names.get(uid)!.add(memberInfo.card);
+                    names.get(uid)!.add(memberInfo.nickname);
+                }
+            } catch (e) {
+                // ignore
+            }
+        };
+        const pickMessage = async (msg: HintInjectedEvent) => {
+            if (msg.post_type == "message") {
+                let groupId: number | undefined = undefined;
+                if (msg.sub_type != "friend") {
+                    groupId = msg.group_id;
+                }
+                await addId(msg.sender.user_id, groupId);
+                for (const segment of msg.message) {
+                    if (segment.type == "at") {
+                        if (segment.data.qq != "all") {
+                            await addId(Number(segment.data.qq), groupId);
+                        }
+                    }
+                }
+                fullMessageStr += msg.raw_message;
+            }
+            if (msg.sub_type == "poke") {
+                try {
+                    let groupId: number | undefined = undefined;
+                    if (msg.hint == EVENT_HINT_MAP["notice.notify.poke.group"]) {
+                        groupId = msg.group_id;
+                    }
+                    const ids = [msg.sender_id, msg.user_id, msg.target_id];
+                    for (const id of ids) {
+                        await addId(id, groupId);
+                    }
+                    fullMessageStr += (await stripPoke(msg)).stringified_message;
+                } catch (e) {
+                    // ignore
+                }
+            }
+        };
+        const tasks: (() => Promise<any>)[] = [];
+
+        let currentTrace: ChatNode | null = null;
+        for (const event of history) {
+            if (event.chat_node && currentTrace != event.chat_node) {
+                fullMessageStr += currentTrace?.trace.join("\n") || "";
+                if (fullMessageStr.length > 0) {
+                    tasks.push(search([fullMessageStr], extras.join(" ")));
+                    fullMessageStr = "";
+                }
+                currentTrace = event.chat_node;
+            }
+            await pickMessage(event.event);
+        }
+        for (const msg of messages) {
+            await pickMessage(msg);
         }
         for (const extra of extras) {
-            const embeddings = await embeddedModel.createEmbedding([extra]);
-            result.push(
-                ...(await this.hybridSearch(
-                    embeddings.data.map((e) => e.embedding),
-                    extra,
-                    50,
-                )),
-            );
+            tasks.push(search([extra], extra));
         }
+        for (const u of names.entries()) {
+            const arr = Array.from(u[1]);
+            arr.push(String(u[0]));
+            const nameStr = arr.join(" ");
+            tasks.push(search(arr, nameStr));
+        }
+        if (fullMessageStr.length > 0) {
+            tasks.push(search([fullMessageStr], extras.join(" ")));
+        }
+        await Promise.all(tasks.map((task) => task()));
         return this.sortResults(result);
     }
 
@@ -133,7 +222,6 @@ class LongTermMemory {
 
         const { rows } = await db().query(query, [embeddingsJson, queryKeywords, limit]);
 
-        // 返回时把时间和内容一起带出去
         return rows.map((r) => ({
             content: r.content,
             created_at: new Date(r.created_at),
