@@ -5,8 +5,7 @@ import { fullStripEvent, getModelHint, preStringifyEvent } from "../napcat/pre_s
 import workingMemory, { WorkingMemoryItem } from "./working_memory.ts";
 import { LlmJson } from "@typia/utils";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
-import { readPrompt } from "../utils/file.ts";
-import { mainModel } from "./main_model.ts";
+import PROMPTS from "../data/config/prompts.ts";
 
 type SearchExtendedAnswer = {
     keywords: string | string[];
@@ -22,11 +21,6 @@ type FullSearchExtendedAnswer = {
 class LiteModel {
     client: OpenAI;
     model: string;
-    promptWorkingMemory = "";
-    promptMemorySearch = "";
-    promptMemoryFullSearch = "";
-    promptMemoryAdd = "";
-    promptDreaming = "";
     temperature = 0.4;
 
     constructor(
@@ -49,13 +43,16 @@ class LiteModel {
         const windowContext = await getModelHint(messages[0]);
         const currentWorkingMemory = workingMemory.list();
         const stripedMessages = await Promise.all(messages.map((msg) => fullStripEvent(msg)));
-        const model_messages: any[] = [{ role: "system", content: this.promptWorkingMemory }];
+        const model_messages: any[] = [
+            ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
+            { role: "system", content: PROMPTS.workingMemory },
+        ];
         const data = [];
         if (windowContext) {
             data.push({ type: "当前聊天窗口", windowContext });
         }
         data.push(
-            { type: "设定(无需加入记忆)", sysPrompt: mainModel.prompt_sys },
+            { type: "设定(无需加入记忆)", sysPrompt: PROMPTS.sys },
             { type: "当前记忆", currentWorkingMemory },
             { type: "当前消息", messages: stripedMessages },
             { type: "模型思考轨迹", trace },
@@ -80,7 +77,7 @@ class LiteModel {
 
     async extendMemorySearch(query: string) {
         const model_messages: any[] = [
-            { role: "system", content: this.promptMemorySearch },
+            { role: "system", content: PROMPTS.memorySearch },
             { role: "user", content: query },
         ];
         const response = await this.client.chat.completions.create({
@@ -127,7 +124,7 @@ class LiteModel {
         }
 
         const model_messages: any[] = [
-            { role: "system", content: this.promptMemoryFullSearch },
+            { role: "system", content: PROMPTS.memoryFullSearch },
             {
                 role: "user",
                 content: JSON.stringify({ events: stripedMessages, trace: modelHistory }),
@@ -171,13 +168,16 @@ class LiteModel {
     async extractMemory(messages: HintInjectedEvent[], trace: string[]) {
         const windowContext = await getModelHint(messages[0]);
         const stripedMessages = await Promise.all(messages.map((msg) => fullStripEvent(msg)));
-        const model_messages: any[] = [{ role: "system", content: this.promptMemoryAdd }];
+        const model_messages: any[] = [
+            ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
+            { role: "system", content: PROMPTS.memoryAdd },
+        ];
         const data = [];
         if (windowContext) {
             data.push({ type: "当前聊天窗口", windowContext });
         }
         data.push(
-            { type: "设定(无需加入记忆)", sysPrompt: mainModel.prompt_sys },
+            { type: "设定(无需加入记忆)", sysPrompt: PROMPTS.sys },
             { type: "当前消息", messages: stripedMessages },
             { type: "模型思考轨迹", trace },
         );
@@ -208,7 +208,10 @@ class LiteModel {
         undreamed_expired: WorkingMemoryItem[];
         undreamed_alive: WorkingMemoryItem[];
     }) {
-        const model_messages: any[] = [{ role: "system", content: this.promptDreaming }];
+        const model_messages: any[] = [
+            ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
+            { role: "system", content: PROMPTS.dreaming },
+        ];
         model_messages.push({
             role: "user",
             content: JSON.stringify(workingMemory),
@@ -233,18 +236,5 @@ class LiteModel {
 }
 
 const liteModel = new LiteModel();
-export function loadPrompts() {
-    try {
-        liteModel.promptWorkingMemory = readPrompt("working.memory");
-        liteModel.promptMemorySearch = readPrompt("memory.search");
-        liteModel.promptMemoryFullSearch = readPrompt("memory.full.search");
-        liteModel.promptMemoryAdd = readPrompt("memory.add");
-        liteModel.promptDreaming = readPrompt("dreaming");
-    } catch (e) {
-        console.error("Failed to load prompt files:", e);
-    }
-}
-
-loadPrompts();
 
 export { liteModel };

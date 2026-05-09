@@ -1,11 +1,12 @@
 import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { CONFIG, reloadConfig } from "../data/config/config.ts";
-import { loadPrompts as loadMainPrompts, mainModel } from "../model/main_model.ts";
-import { liteModel, loadPrompts as loadLitePrompts } from "../model/lite_model.ts";
-import { imageModel, loadPrompts as loadImagePrompts } from "../model/image_model.ts";
+import { mainModel } from "../model/main_model.ts";
+import { liteModel } from "../model/lite_model.ts";
+import { imageModel } from "../model/image_model.ts";
 import { loginInfo, napcat } from "../napcat/client.ts";
 import { eventStack } from "../main.ts";
+import { reloadPrompt } from "../data/config/prompts.ts";
 
 export function consoleLoop() {
     const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -16,9 +17,7 @@ export function consoleLoop() {
 
         if (text === "reload") {
             reloadConfig();
-            loadMainPrompts();
-            loadLitePrompts();
-            loadImagePrompts();
+            reloadPrompt();
             mainModel.model = CONFIG.mainModel.model;
             mainModel.client.baseURL = CONFIG.mainModel.baseUrl;
             mainModel.client.apiKey = CONFIG.mainModel.apiKey;

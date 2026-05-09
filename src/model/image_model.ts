@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import CONFIG from "../data/config/config.ts";
 import { LlmJson } from "@typia/utils";
-import { readPrompt } from "../utils/file.ts";
+import PROMPTS from "../data/config/prompts.ts";
 
 type ImageParseResult = {
     summary: string;
@@ -12,7 +12,6 @@ type ImageParseResult = {
 class ImageModel {
     client: OpenAI;
     model: string;
-    prompt = "";
 
     constructor(
         baseUrl: string = CONFIG.imageModel.baseUrl,
@@ -32,7 +31,7 @@ class ImageModel {
 
     async parseImage(image: string) {
         const model_messages: any[] = [
-            { role: "system", content: this.prompt },
+            { role: "system", content: PROMPTS.image },
             {
                 role: "user",
                 content: [
@@ -64,13 +63,5 @@ class ImageModel {
 }
 
 const imageModel = new ImageModel();
-export function loadPrompts() {
-    try {
-        imageModel.prompt = readPrompt("image");
-    } catch (e) {
-        console.error("Failed to load prompt files:", e);
-    }
-}
 
-loadPrompts();
 export { imageModel };

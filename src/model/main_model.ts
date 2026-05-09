@@ -14,14 +14,11 @@ import workingMemory from "./working_memory.ts";
 import { longTermMemory } from "./long_term_memory.ts";
 import { Receive } from "node-napcat-ts/dist/Structs";
 import { sticker } from "../data/database/sticker.ts";
-import { readPrompt } from "../utils/file.ts";
+import PROMPTS from "../data/config/prompts.ts";
 
 class MainModel {
     client: OpenAI;
     model: string;
-    prompt_dev: string = "";
-    prompt_sys: string = "";
-    prompt_hint: string = "";
 
     constructor(
         baseUrl: string = CONFIG.mainModel.baseUrl,
@@ -52,8 +49,9 @@ class MainModel {
         );
 
         const model_messages: any[] = [
-            { role: "system", content: this.prompt_dev },
-            { role: "system", content: this.prompt_sys },
+            { role: "system", content: PROMPTS.dev },
+            { role: "system", content: PROMPTS.sys },
+            ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
         ];
 
         const windowContext = await getModelHint(messages[0]);
@@ -135,12 +133,15 @@ class MainModel {
             role: "system",
             content: JSON.stringify(hints),
         });
+        // again
+
+        model_messages.push({ role: "system", content: PROMPTS.sys });
 
         // 处理历史记录
         let model_history: ChatNode | null = null;
         let history_messages: any[] = [];
         for (const event of history) {
-            if (event.chat_node && model_history != event.chat_node) {
+            if (model_history != event.chat_node) {
                 if (history_messages.length > 0) {
                     model_messages.push({
                         role: "user",
@@ -183,7 +184,7 @@ class MainModel {
                 event: await fullStripEvent(event),
             });
         }
-        new_messages_payload.push({ type: "hint", content: this.prompt_hint });
+        new_messages_payload.push({ type: "hint", content: PROMPTS.hint });
 
         model_messages.push({ role: "user", content: JSON.stringify(new_messages_payload) });
 
@@ -309,18 +310,6 @@ class MainModel {
 }
 
 const mainModel = new MainModel();
-
-export function loadPrompts() {
-    try {
-        mainModel.prompt_dev = readPrompt("dev");
-        mainModel.prompt_sys = readPrompt("sys");
-        mainModel.prompt_hint = readPrompt("hint");
-    } catch (e) {
-        console.error("Failed to load prompt files:", e);
-    }
-}
-
-loadPrompts();
 
 export { mainModel };
 

@@ -145,8 +145,10 @@ class LongTermMemory {
 
         let currentTrace: ChatNode | null = null;
         for (const event of history) {
-            if (event.chat_node && currentTrace != event.chat_node) {
-                fullMessageStr += currentTrace?.trace.join("\n") || "";
+            if (currentTrace != event.chat_node) {
+                if (currentTrace != null) {
+                    fullMessageStr += currentTrace?.trace.join("\n") || "";
+                }
                 if (fullMessageStr.length > 0) {
                     tasks.push(search([fullMessageStr], extras.join(" ")));
                     fullMessageStr = "";
@@ -170,6 +172,7 @@ class LongTermMemory {
         if (fullMessageStr.length > 0) {
             tasks.push(search([fullMessageStr], extras.join(" ")));
         }
+        tasks.push(search(["设定"], "设定"));
         await Promise.all(tasks.map((task) => task()));
         return this.sortResults(result);
     }

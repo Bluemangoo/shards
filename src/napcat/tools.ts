@@ -16,11 +16,11 @@ import typia from "typia";
 import { longTermMemory, MemorySearchResult } from "../model/long_term_memory.ts";
 import { sticker } from "../data/database/sticker.ts";
 import fs from "node:fs";
-import { findSingleFileByBaseName } from "../utils/file.ts";
+import { fileToBase64Url, findSingleFileByBaseName } from "../utils/file.ts";
 import { eventStack } from "../main.ts";
 import { HintInjectedEvent } from "../types/event.ts";
 import { history } from "../data/database/history.ts";
-import { EVENT_HINT_MAP, injectMsgHint } from "./filter.ts";
+import { EVENT_HINT_MAP, injectRawMsg } from "./filter.ts";
 import { NapcatResult } from "../types/napcat_api.ts";
 
 export const napcatTools = {
@@ -46,6 +46,7 @@ export const napcatTools = {
             }
 
             let result;
+            let injectInfo: Record<string, any> = {};
             if (p.group_id != null) {
                 result = await napcat.send_msg({
                     group_id: p.group_id,
@@ -56,11 +57,12 @@ export const napcatTools = {
                     user_id: p.user_id!,
                     message: <any>p.message,
                 });
+                injectInfo.user_id = p.user_id!;
             }
 
             const message = await napcat.get_msg({ message_id: result.message_id });
 
-            await storeEvent(injectMsgHint(message));
+            await storeEvent(injectRawMsg(message, injectInfo));
             return result;
         },
         "发送消息",
@@ -107,7 +109,7 @@ export const napcatTools = {
             } & ToolArguments,
         ) => {
             const message = await napcat.get_msg({ message_id: Number(p.message_id) });
-            return await preStringifyEvent(injectMsgHint(message));
+            return await preStringifyEvent(injectRawMsg(message));
         },
         "获取单条消息",
         "根据消息 ID 获取消息详细信息",
@@ -170,9 +172,7 @@ export const napcatTools = {
                 return [];
             }
 
-            return await Promise.all(
-                messageHistory.map((m) => preStringifyEvent(injectMsgHint(m))),
-            );
+            return await Promise.all(messageHistory.map((m) => preStringifyEvent(injectRawMsg(m))));
         },
         "获取历史消息",
         "根据时间范围获取历史消息，其中可选的message_seq为起始消息序号，在上下文中可不填类型和id",
@@ -191,7 +191,7 @@ export const napcatTools = {
     ),
 
     get_chat_list: toolHelper(
-        async (p: ToolArguments) => {
+        async (_p: ToolArguments) => {
             const messages = await EventStore.get_distinct_message_events(20);
             const chatList: {
                 message_type: "group" | "private";
@@ -238,7 +238,7 @@ export const napcatTools = {
     ),
 
     get_friend_list: toolHelper(
-        async (p: ToolArguments) => {
+        async (_p: ToolArguments) => {
             return await cached_get_friend_list();
         },
         "获取好友列表",
@@ -365,14 +365,14 @@ export const napcatTools = {
             } & ToolArguments,
         ) => {
             try {
-                return new ImageOutput(await urlToDataUrl(p.image_url));
-            } catch (e) {
                 if (p.file_id != null) {
                     const f = await napcat.get_image({ file: p.file_id });
-                    return new ImageOutput(await urlToDataUrl(f.url));
+                    return new ImageOutput(fileToBase64Url(f.file));
                 }
-                throw e;
+            } catch (e) {
+                console.error(e);
             }
+            return new ImageOutput(await urlToDataUrl(p.image_url));
         },
         "读取图片",
         "根据图片 URL 读取图片内容，返回图片。有file_id可以一起传进来，保险一点。",
@@ -473,11 +473,11 @@ export const napcatTools = {
             return longTermMemory.sortResults(unwrap);
         },
         "在记忆中搜索",
-        "根据句子在记忆中搜索。每个查询一个字符串，请不要吝啬使用。",
+        "根据句子在记忆中搜索。一次搜索中每个查询一个完整句子。请不要吝啬使用。",
     ),
 
     list_stickers: toolHelper(
-        async (p: {} & ToolArguments) => {
+        async (_p: {} & ToolArguments) => {
             const s = await sticker.listStickers();
             return s.map((s) => ({
                 id: s.id,
@@ -615,7 +615,7 @@ export const napcatTools = {
                 }
             }
 
-            await storeEvent(injectMsgHint(message));
+            await storeEvent(injectRawMsg(message));
             return result;
         },
         "发送表情包",

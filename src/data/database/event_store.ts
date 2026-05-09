@@ -22,11 +22,11 @@ export class EventStore {
 
         if (window.type === "group") {
             conditions.push("data->>'message_type' = 'group'");
-            conditions.push(`data->>'target_id' = $${paramIdx++}`);
+            conditions.push(`data->>'group_id' = $${paramIdx++}`);
             params.push(String(window.id));
         } else if (window.type === "private") {
             conditions.push("data->>'message_type' = 'private'");
-            conditions.push(`data->>'target_id' = $${paramIdx++}`);
+            conditions.push(`data->>'user_id' = $${paramIdx++}`);
             params.push(String(window.id));
         }
 
