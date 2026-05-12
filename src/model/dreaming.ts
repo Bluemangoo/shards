@@ -1,8 +1,8 @@
 import db from "../data/database/db.ts";
-import workingMemory, { WorkingMemoryItem } from "./working_memory.ts";
+import workingMemory, { WorkingMemoryItem } from "./working-memory.ts";
 import { splitLists } from "../utils/list.ts";
-import { liteModel } from "./lite_model.ts";
-import { longTermMemory } from "./long_term_memory.ts";
+import { liteModel } from "./lite-model.ts";
+import { longTermMemory } from "./long-term-memory.ts";
 
 export async function dreaming() {
     await precipitate();
@@ -36,4 +36,5 @@ async function precipitate(force = false) {
     await db().query("update working_memory set dreamed = true where id = any($1::int[])", [
         undreamed.map((item) => item.key),
     ]);
+    console.log("dreaming completed");
 }

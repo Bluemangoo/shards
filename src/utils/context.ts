@@ -1,4 +1,4 @@
-import { ChatWindow } from "./chat_window.ts";
+import { ChatWindow } from "./chat-window.ts";
 
 export class ModelContext {
     constructor(public window?: ChatWindow) {}

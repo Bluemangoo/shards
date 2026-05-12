@@ -8,10 +8,10 @@ import {
     napcatToolDefined,
     napcatTools,
 } from "../napcat/tools.ts";
-import { fullStripEvent, getModelHint } from "../napcat/pre_stringify_event.ts";
+import { fullStripEvent, getModelHint } from "../napcat/pre-stringify-event.ts";
 import CONFIG from "../data/config/config.ts";
-import workingMemory from "./working_memory.ts";
-import { longTermMemory } from "./long_term_memory.ts";
+import workingMemory from "./working-memory.ts";
+import { longTermMemory } from "./long-term-memory.ts";
 import { Receive } from "node-napcat-ts/dist/Structs";
 import { sticker } from "../data/database/sticker.ts";
 import PROMPTS from "../data/config/prompts.ts";
@@ -141,7 +141,7 @@ class MainModel {
         let model_history: ChatNode | null = null;
         let history_messages: any[] = [];
         for (const event of history) {
-            if (model_history != event.chat_node) {
+            if (model_history != event.chatNode) {
                 if (history_messages.length > 0) {
                     model_messages.push({
                         role: "user",
@@ -155,7 +155,7 @@ class MainModel {
                     });
                 }
                 history_messages = [];
-                model_history = event.chat_node;
+                model_history = event.chatNode;
             }
             history_messages.push({
                 type: "history_message",

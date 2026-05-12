@@ -1,4 +1,4 @@
-import WeightedLRU, { CacheItem } from "../types/weighted_lru.ts";
+import WeightedLRU, { CacheItem } from "../types/weighted-lru.ts";
 import db from "../data/database/db.ts";
 import { LlmJson } from "@typia/utils";
 

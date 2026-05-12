@@ -1,10 +1,10 @@
 import db from "../data/database/db.ts";
-import { liteModel } from "./lite_model.ts";
+import { liteModel } from "./lite-model.ts";
 import { HintInjectedEvent } from "../types/event.ts";
-import { embeddedModel } from "./embedding_model.ts";
+import { embeddedModel } from "./embedding-model.ts";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
 import { EVENT_HINT_MAP } from "../napcat/filter.ts";
-import { stripPoke } from "../napcat/pre_stringify_event.ts";
+import { stripPoke } from "../napcat/pre-stringify-event.ts";
 import { cached_get_group_member_info, cached_get_stranger_info } from "../napcat/wrapper.ts";
 
 export interface MemorySearchResult {
@@ -13,8 +13,8 @@ export interface MemorySearchResult {
 }
 
 class LongTermMemory {
-    async addFromEvent(events: HintInjectedEvent[], trace: string[]) {
-        const extracted = await liteModel.extractMemory(events, trace);
+    async addFromEvent(events: HintInjectedEvent[], trace: string[], history: ConsumedEvent[]) {
+        const extracted = await liteModel.extractMemory(events, trace, history);
         for (const content of extracted) {
             await this.add(content);
         }
@@ -66,7 +66,7 @@ class LongTermMemory {
         const names = new Map<number, Set<string>>();
         // 防止全表搜
         if (extras.length == 0) {
-            extras = ["记忆 设定"];
+            extras = ["规则 设定"];
         }
 
         const result: MemorySearchResult[] = [];
@@ -145,7 +145,7 @@ class LongTermMemory {
 
         let currentTrace: ChatNode | null = null;
         for (const event of history) {
-            if (currentTrace != event.chat_node) {
+            if (currentTrace != event.chatNode) {
                 if (currentTrace != null) {
                     fullMessageStr += currentTrace?.trace.join("\n") || "";
                 }
@@ -153,7 +153,7 @@ class LongTermMemory {
                     tasks.push(search([fullMessageStr], extras.join(" ")));
                     fullMessageStr = "";
                 }
-                currentTrace = event.chat_node;
+                currentTrace = event.chatNode;
             }
             await pickMessage(event.event);
         }
@@ -202,13 +202,22 @@ class LongTermMemory {
                                    HAVING MIN(l.embedding <=> u.emb) < 0.45
                                    ORDER BY MIN(l.embedding <=> u.emb)
                                    LIMIT 50),
+                 keyword_search_base AS (SELECT id,
+                                                content,
+                                                created_at,
+                                                -- RANDOM() * 86400 * 5 引入 0~5 天的随机扰动。
+                                                -- 0.005 表示每新 1 天，距离得分减少 0.001。
+                                                (content <-> $2) -
+                                                ((EXTRACT(EPOCH FROM created_at) + (RANDOM() * 86400 * 5)) / 86400.0) *
+                                                0.001 AS combined_score
+                                         FROM long_term_memory
+                                         WHERE (content <-> $2) < 0.6),
                  keyword_search AS (SELECT id,
                                            content,
                                            created_at,
-                                           ROW_NUMBER() OVER (ORDER BY content <-> $2) as rank
-                                    FROM long_term_memory
-                                    WHERE (content <-> $2) < 0.6
-                                    ORDER BY content <-> $2
+                                           ROW_NUMBER() OVER (ORDER BY combined_score) as rank
+                                    FROM keyword_search_base
+                                    ORDER BY combined_score
                                     LIMIT 50)
             
             SELECT v.id                                                                      as id,

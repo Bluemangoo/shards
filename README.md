@@ -63,6 +63,14 @@ create table long_term_memory
 
 ### 6. `pnpm run start`
 
+### tips
+
+我用的napcat被我爆改过，injectPttText自己扬掉。
+
+主模型支持语音的去把tools里面语音相关的一个工具一个类取消注释了。
+
+觉得自己模型快的飞起的可以把LongTermMemory的fullSearch改回用extendFullMemorySearch的。
+
 ## 架构
 
 Shards 采用多层架构，将消息接收、推理决策与记忆整理异步分离。

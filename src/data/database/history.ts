@@ -1,6 +1,6 @@
-import CircularQueue from "../../utils/circular_queue.ts";
-import { ChatWindow } from "../../utils/chat_window.ts";
-import { EventStore } from "./event_store.ts";
+import CircularQueue from "../../utils/circular-queue.ts";
+import { ChatWindow } from "../../utils/chat-window.ts";
+import { EventStore } from "./event-store.ts";
 import { HintInjectedEvent } from "../../types/event.ts";
 
 export class ChatNode {
@@ -10,8 +10,33 @@ export class ChatNode {
 export class ConsumedEvent {
     constructor(
         public event: HintInjectedEvent,
-        public chat_node: ChatNode | null,
+        public chatNode: ChatNode | null,
     ) {}
+
+    static group(ce: ConsumedEvent[]) {
+        const out: { events: HintInjectedEvent[]; chatNode: ChatNode | null }[] = [];
+        let currentChatNode: ChatNode | null = null;
+        let currentEvents: HintInjectedEvent[] = [];
+        for (const e of ce) {
+            if (e.chatNode != currentChatNode) {
+                if (currentEvents.length > 0 || currentChatNode != null) {
+                    out.push({
+                        events: currentEvents,
+                        chatNode: currentChatNode,
+                    });
+                }
+                currentChatNode = e.chatNode;
+                currentEvents = [];
+            }
+        }
+        if (currentEvents.length > 0 || currentChatNode != null) {
+            out.push({
+                events: currentEvents,
+                chatNode: currentChatNode,
+            });
+        }
+        return out;
+    }
 }
 
 export class HistoryManager {

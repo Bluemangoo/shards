@@ -1,11 +1,11 @@
 import fs from "node:fs";
 import db from "./db.ts";
 import { downloadFileWithAutoExt } from "../../utils/net.ts";
-import { imageModel } from "../../model/image_model.ts";
+import { imageModel } from "../../model/image-model.ts";
 import { napcat } from "../../napcat/client.ts";
 
 export interface ImageDescriptionData {
-    id: number; // <-- 新增的 description id
+    id: number;
     summary: string;
     description: string;
     tags: string[];
@@ -30,15 +30,15 @@ class Sticker {
         }
         let fileName;
         try {
+            const f = await napcat.get_image({ file: fileId });
+            fileName = f.file_name;
+            fs.copyFileSync(f.file, process.cwd() + "/data/temp_stickers" + "/" + f.file_name);
+        } catch (e) {
             fileName = await downloadFileWithAutoExt(
                 url,
                 fileId.split(".")[0],
                 process.cwd() + "/data/temp_stickers",
             );
-        } catch (e) {
-            const f = await napcat.get_image({ file: fileId });
-            fileName = f.file_name;
-            fs.copyFileSync(f.file, process.cwd() + "/data/temp_stickers" + "/" + f.file_name);
         }
         const ext = fileName.split(".").pop()!;
         const b64 = fs.readFileSync(process.cwd() + "/data/temp_stickers/" + fileName, {

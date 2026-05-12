@@ -1,4 +1,5 @@
 import {
+    cached_fetch_ptt_text,
     cached_get_friend_info,
     cached_get_group_info,
     cached_get_group_member_display_name,
@@ -9,7 +10,7 @@ import {
 import { HintInjectedEvent, NapcatEvent } from "../types/event.ts";
 import { EVENT_HINT_MAP } from "./filter.ts";
 import { GroupMessage } from "node-napcat-ts";
-import { NapcatResult } from "../types/napcat_api.ts";
+import { NapcatResult } from "../types/napcat-api.ts";
 import { stringifyDurationSeconds } from "../utils/time.ts";
 
 export function stripGroupInfo(groupInfo: NapcatResult["get_group_info"]) {
@@ -273,6 +274,20 @@ export async function getGroupPokeModelHint(
     };
 }
 
+export async function injectPttText(e: HintInjectedEvent) {
+    if (e.post_type == "message") {
+        for (const seg of e.message) {
+            if (seg.type == "record") {
+                try {
+                    (seg.data as any).text = (await cached_fetch_ptt_text(e.message_id)).text;
+                } catch (e) {
+                    console.error("Failed to fetch ptt text", e);
+                }
+            }
+        }
+    }
+}
+
 export async function injectAt(e: HintInjectedEvent) {
     if (e.post_type == "message") {
         const event = e as GroupMessage;
@@ -336,10 +351,14 @@ export async function preStringifyEvent(event: HintInjectedEvent) {
             case EVENT_HINT_MAP["notice.group_ban.lift_ban"]:
                 postEvent = await stripBan(event);
                 break;
+            case EVENT_HINT_MAP["message.private.group"]:
+            case EVENT_HINT_MAP["message.private.friend"]:
+                await injectPttText(event);
+            // fallthrough
             case EVENT_HINT_MAP["message.group.normal"]:
-                postEvent = event;
                 await injectAt(event);
-                break;
+                await injectPttText(event);
+            // fallthrough
             default:
                 postEvent = event;
         }

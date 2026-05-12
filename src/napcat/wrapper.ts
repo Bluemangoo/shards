@@ -1,4 +1,5 @@
 import { napcat } from "./client.ts";
+import { fetch_ptt_text } from "./extra-api.ts";
 
 function memoize<T, P extends (...args: any[]) => Promise<T>>(fn: P, ttlMs: number = 600000): P {
     const cache = new Map<string, { value: T; expires: number }>();
@@ -86,4 +87,8 @@ export const cached_get_forward_message = memoize(async (message_id: string | nu
     return await napcat.get_forward_msg({
         message_id: String(message_id),
     });
+});
+
+export const cached_fetch_ptt_text = memoize(async (message_id: string | number) => {
+    return fetch_ptt_text({ message_id: Number(message_id) });
 });

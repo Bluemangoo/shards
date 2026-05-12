@@ -1,5 +1,5 @@
 import db from "./db.ts";
-import { ChatWindow } from "../../utils/chat_window.ts";
+import { ChatWindow } from "../../utils/chat-window.ts";
 import { HintInjectedEvent } from "../../types/event.ts";
 
 export class EventStore {

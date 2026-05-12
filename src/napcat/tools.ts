@@ -1,10 +1,10 @@
 import { ToolArguments, toolHelper } from "../types/mcp.ts";
 import { loginInfo, napcat } from "./client.ts";
-import { expectedEvents, storeEvent } from "../main_loop/life_cycle.ts";
+import { expectedEvents, storeEvent } from "../main_loop/life-cycle.ts";
 import { downloadFileWithAutoExt, urlToDataUrl } from "../utils/net.ts";
 import { SendMessageSegment, Structs } from "node-napcat-ts";
-import { fullStripEvent, preStringifyEvent } from "./pre_stringify_event.ts";
-import { EventStore } from "../data/database/event_store.ts";
+import { fullStripEvent, preStringifyEvent } from "./pre-stringify-event.ts";
+import { EventStore } from "../data/database/event-store.ts";
 import {
     cached_get_forward_message,
     cached_get_friend_list,
@@ -13,7 +13,7 @@ import {
     cached_get_stranger_info,
 } from "./wrapper.ts";
 import typia from "typia";
-import { longTermMemory, MemorySearchResult } from "../model/long_term_memory.ts";
+import { longTermMemory, MemorySearchResult } from "../model/long-term-memory.ts";
 import { sticker } from "../data/database/sticker.ts";
 import fs from "node:fs";
 import { fileToBase64Url, findSingleFileByBaseName } from "../utils/file.ts";
@@ -21,7 +21,7 @@ import { eventStack } from "../main.ts";
 import { HintInjectedEvent } from "../types/event.ts";
 import { history } from "../data/database/history.ts";
 import { EVENT_HINT_MAP, injectRawMsg } from "./filter.ts";
-import { NapcatResult } from "../types/napcat_api.ts";
+import { NapcatResult } from "../types/napcat-api.ts";
 
 export const napcatTools = {
     /**
@@ -375,8 +375,21 @@ export const napcatTools = {
             return new ImageOutput(await urlToDataUrl(p.image_url));
         },
         "读取图片",
-        "根据图片 URL 读取图片内容，返回图片。有file_id可以一起传进来，保险一点。",
+        "根据图片 URL 读取图片内容，返回图片。有file_id(消息data中的file字段)可以一起传进来，保险一点。",
     ),
+
+    // read_record: toolHelper(
+    //     async (
+    //         p: {
+    //             file_id: string;
+    //         } & ToolArguments,
+    //     ) => {
+    //         const f = await napcat.get_record({ file: p.file_id, out_format: "mp3" });
+    //         return new Mp3Output((<any>f).base64 /* it exists */);
+    //     },
+    //     "读取语音",
+    //     "根据语音文件 ID 读取语音内容。",
+    // ),
 
     download_file: toolHelper(
         async (
@@ -699,6 +712,26 @@ export class ImageOutput extends InjectOutput {
         };
     }
 }
+
+// export class Mp3Output extends InjectOutput {
+//     constructor(public audio: string) {
+//         super();
+//     }
+//
+//     toolOutputPlaceholder(): string {
+//         return "Record will be uploaded in the next user message";
+//     }
+//
+//     output() {
+//         return {
+//             type: "input_audio",
+//             input_audio: {
+//                 data: this.audio,
+//                 format: "mp3",
+//             },
+//         };
+//     }
+// }
 
 export class FileOutput extends InjectOutput {
     constructor(

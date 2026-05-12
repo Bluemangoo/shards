@@ -1,12 +1,12 @@
-import { EventStore } from "../data/database/event_store.ts";
+import { EventStore } from "../data/database/event-store.ts";
 import { HintInjectedEvent } from "../types/event.ts";
-import { ChatWindow } from "../utils/chat_window.ts";
+import { ChatWindow } from "../utils/chat-window.ts";
 import { ChatNode, ConsumedEvent, history } from "../data/database/history.ts";
 import { eventStack } from "../main.ts";
 import { ModelContext } from "../utils/context.ts";
-import { mainModel } from "../model/main_model.ts";
-import { liteModel } from "../model/lite_model.ts";
-import { longTermMemory } from "../model/long_term_memory.ts";
+import { mainModel } from "../model/main-model.ts";
+import { liteModel } from "../model/lite-model.ts";
+import { longTermMemory } from "../model/long-term-memory.ts";
 import { loginInfo } from "../napcat/client.ts";
 import { deepContains } from "../utils/obj.ts";
 
@@ -74,23 +74,31 @@ export async function onEventBatch(window: ChatWindow | null, batch: HintInjecte
     }
     const trace = await mainModel.response_chat(batch, his, new ModelContext(window ?? undefined));
     history.addProcessedEvent(window, batch, new ChatNode(trace));
-    await Promise.all([processWorkingMemory(batch, trace), processLongTermMemory(batch, trace)]);
+    await Promise.all([processWorkingMemory(batch, trace, his), processLongTermMemory(batch, trace, his)]);
 }
 
-async function processWorkingMemory(batch: HintInjectedEvent[], trace: string[]) {
+async function processWorkingMemory(
+    batch: HintInjectedEvent[],
+    trace: string[],
+    history: ConsumedEvent[],
+) {
     try {
         console.log("Processing working memory");
-        await liteModel.processWorkingMemory(batch, trace);
+        await liteModel.processWorkingMemory(batch, trace, history);
         console.log("Saved working memory");
     } catch (e) {
         console.error("Failed to process working memory", e);
     }
 }
 
-async function processLongTermMemory(batch: HintInjectedEvent[], trace: string[]) {
+async function processLongTermMemory(
+    batch: HintInjectedEvent[],
+    trace: string[],
+    history: ConsumedEvent[],
+) {
     try {
         console.log("Processing long-term memory");
-        await longTermMemory.addFromEvent(batch, trace);
+        await longTermMemory.addFromEvent(batch, trace, history);
         console.log("Saved long-term memory");
     } catch (e) {
         console.error("Failed to process long-term memory", e);

@@ -1,7 +1,7 @@
 import { NCWebsocket } from "node-napcat-ts";
-import { onEvent } from "../main_loop/life_cycle.ts";
+import { onEvent } from "../main_loop/life-cycle.ts";
 import { HintInjectedEvent, NapcatEvent } from "../types/event.ts";
-import { NapcatResult } from "../types/napcat_api.ts";
+import { NapcatResult } from "../types/napcat-api.ts";
 
 export const EVENT_HINT_MAP = {
     "message.private.friend": "private_message",

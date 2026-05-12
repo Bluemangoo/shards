@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 import CONFIG from "../data/config/config.ts";
 import { HintInjectedEvent } from "../types/event.ts";
-import { fullStripEvent, getModelHint, preStringifyEvent } from "../napcat/pre_stringify_event.ts";
-import workingMemory, { WorkingMemoryItem } from "./working_memory.ts";
+import { fullStripEvent, getModelHint, preStringifyEvent } from "../napcat/pre-stringify-event.ts";
+import workingMemory, { WorkingMemoryItem } from "./working-memory.ts";
 import { LlmJson } from "@typia/utils";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
 import PROMPTS from "../data/config/prompts.ts";
@@ -39,7 +39,11 @@ class LiteModel {
         });
     }
 
-    async processWorkingMemory(messages: HintInjectedEvent[], trace: string[]) {
+    async processWorkingMemory(
+        messages: HintInjectedEvent[],
+        trace: string[],
+        history: ConsumedEvent[],
+    ) {
         const windowContext = await getModelHint(messages[0]);
         const currentWorkingMemory = workingMemory.list();
         const stripedMessages = await Promise.all(messages.map((msg) => fullStripEvent(msg)));
@@ -47,12 +51,22 @@ class LiteModel {
             ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
             { role: "system", content: PROMPTS.workingMemory },
         ];
+
         const data = [];
+        data.push({ type: "设定(无需加入记忆)", sysPrompt: PROMPTS.sys });
         if (windowContext) {
             data.push({ type: "当前聊天窗口", windowContext });
         }
+        data.push({
+            type: "参考上下文(无需加入记忆)",
+            history: await Promise.all(
+                ConsumedEvent.group(history).map(async (h) => ({
+                    messages: await Promise.all(h.events.map((e) => preStringifyEvent(e))),
+                    trace: h.chatNode,
+                })),
+            ),
+        });
         data.push(
-            { type: "设定(无需加入记忆)", sysPrompt: PROMPTS.sys },
             { type: "当前记忆", currentWorkingMemory },
             { type: "当前消息", messages: stripedMessages },
             { type: "模型思考轨迹", trace },
@@ -114,8 +128,8 @@ class LiteModel {
         const stripedMessages = [];
         const modelHistory: ChatNode[] = [];
         for (const event of history) {
-            if (event.chat_node && !modelHistory.includes(event.chat_node)) {
-                modelHistory.push(event.chat_node);
+            if (event.chatNode && !modelHistory.includes(event.chatNode)) {
+                modelHistory.push(event.chatNode);
             }
             stripedMessages.push(await preStringifyEvent(event.event));
         }
@@ -165,7 +179,7 @@ class LiteModel {
         return contents;
     }
 
-    async extractMemory(messages: HintInjectedEvent[], trace: string[]) {
+    async extractMemory(messages: HintInjectedEvent[], trace: string[], history: ConsumedEvent[]) {
         const windowContext = await getModelHint(messages[0]);
         const stripedMessages = await Promise.all(messages.map((msg) => fullStripEvent(msg)));
         const model_messages: any[] = [
@@ -173,14 +187,20 @@ class LiteModel {
             { role: "system", content: PROMPTS.memoryAdd },
         ];
         const data = [];
+        data.push({ type: "设定(无需加入记忆)", sysPrompt: PROMPTS.sys });
         if (windowContext) {
             data.push({ type: "当前聊天窗口", windowContext });
         }
-        data.push(
-            { type: "设定(无需加入记忆)", sysPrompt: PROMPTS.sys },
-            { type: "当前消息", messages: stripedMessages },
-            { type: "模型思考轨迹", trace },
-        );
+        data.push({
+            type: "参考上下文(无需加入记忆)",
+            history: await Promise.all(
+                ConsumedEvent.group(history).map(async (h) => ({
+                    messages: await Promise.all(h.events.map((e) => preStringifyEvent(e))),
+                    trace: h.chatNode,
+                })),
+            ),
+        });
+        data.push({ type: "当前消息", messages: stripedMessages }, { type: "模型思考轨迹", trace });
         model_messages.push({
             role: "user",
             content: JSON.stringify(data),

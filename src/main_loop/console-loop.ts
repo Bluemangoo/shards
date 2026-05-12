@@ -1,9 +1,9 @@
 import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { CONFIG, reloadConfig } from "../data/config/config.ts";
-import { mainModel } from "../model/main_model.ts";
-import { liteModel } from "../model/lite_model.ts";
-import { imageModel } from "../model/image_model.ts";
+import { mainModel } from "../model/main-model.ts";
+import { liteModel } from "../model/lite-model.ts";
+import { imageModel } from "../model/image-model.ts";
 import { loginInfo, napcat } from "../napcat/client.ts";
 import { eventStack } from "../main.ts";
 import { reloadPrompt } from "../data/config/prompts.ts";
