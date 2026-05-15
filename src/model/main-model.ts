@@ -335,6 +335,7 @@ class StickerInjector {
 
     async process() {
         const tasks: Promise<void>[] = [];
+        console.log("Processing sticker", [...this.map.keys()]);
         for (const entry of this.map.entries()) {
             tasks.push(this.processOne(entry[0], entry[1]));
         }

@@ -32,7 +32,7 @@ function shouldIgnore(event: HintInjectedEvent) {
             return true;
         }
     }
-    if (event.sub_type == "poke") {
+    if (event.post_type == "notice" && event.sub_type == "poke") {
         return event.sender_id == event.self_id;
     }
     return false;
@@ -74,7 +74,10 @@ export async function onEventBatch(window: ChatWindow | null, batch: HintInjecte
     }
     const trace = await mainModel.response_chat(batch, his, new ModelContext(window ?? undefined));
     history.addProcessedEvent(window, batch, new ChatNode(trace));
-    await Promise.all([processWorkingMemory(batch, trace, his), processLongTermMemory(batch, trace, his)]);
+    await Promise.all([
+        processWorkingMemory(batch, trace, his),
+        processLongTermMemory(batch, trace, his),
+    ]);
 }
 
 async function processWorkingMemory(

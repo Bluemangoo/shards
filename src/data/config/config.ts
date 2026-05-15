@@ -32,6 +32,9 @@ function generateConfig() {
         database: {
             url: requireNonNull(process.env.PG_URL),
         },
+        langSearch: {
+            apiKey: process.env.LANG_SEARCH_API_KEY,
+        },
     };
 }
 

@@ -2,6 +2,7 @@ import { NCWebsocket } from "node-napcat-ts";
 import { onEvent } from "../main_loop/life-cycle.ts";
 import { HintInjectedEvent, NapcatEvent } from "../types/event.ts";
 import { NapcatResult } from "../types/napcat-api.ts";
+import { EventKey } from "node-napcat-ts/dist/Interfaces";
 
 export const EVENT_HINT_MAP = {
     "message.private.friend": "private_message",
@@ -11,7 +12,8 @@ export const EVENT_HINT_MAP = {
     "notice.notify.poke.group": "group_poke",
     "notice.group_ban.ban": "group_ban",
     "notice.group_ban.lift_ban": "group_lift_ban",
-} as const;
+    "request.friend": "friend_add_request",
+} as const satisfies Partial<Record<EventKey, string>>;
 
 export function injectRawMsg(event: NapcatResult["get_msg"], extra?: Record<string, any>) {
     const e = event as unknown as Extract<
@@ -64,5 +66,8 @@ export function registerNapcat(napcat: NCWebsocket) {
     });
     napcat.on("notice.group_ban.lift_ban", (e) => {
         push(e, EVENT_HINT_MAP["notice.group_ban.lift_ban"]);
+    });
+    napcat.on("request.friend", (e) => {
+        push(e, EVENT_HINT_MAP["request.friend"]);
     });
 }

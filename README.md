@@ -65,7 +65,7 @@ create table long_term_memory
 
 ### tips
 
-我用的napcat被我爆改过，injectPttText自己扬掉。
+~~我用的napcat被我爆改过，injectPttText自己扬掉。~~ PR合并了请使用26.5.13以后的napcat构建。
 
 主模型支持语音的去把tools里面语音相关的一个工具一个类取消注释了。
 

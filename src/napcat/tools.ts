@@ -22,6 +22,9 @@ import { HintInjectedEvent } from "../types/event.ts";
 import { history } from "../data/database/history.ts";
 import { EVENT_HINT_MAP, injectRawMsg } from "./filter.ts";
 import { NapcatResult } from "../types/napcat-api.ts";
+import { fetchUrlAsMarkdown } from "../utils/browse.ts";
+import axios from "axios";
+import CONFIG from "../data/config/config.ts";
 
 export const napcatTools = {
     /**
@@ -430,6 +433,44 @@ export const napcatTools = {
         "根据文件URL下载文件，返回文件内容",
     ),
 
+    search_web: toolHelper(
+        async (
+            p: {
+                query: string;
+            } & ToolArguments,
+        ) => {
+            const res = await axios.post(
+                "https://api.langsearch.com/v1/web-search",
+                {
+                    query: p.query,
+                    summary: true,
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${CONFIG.langSearch.apiKey}`,
+                        "Content-Type": "application/json",
+                    },
+                },
+            );
+            return res.data.data ?? res.data;
+        },
+        "网络搜索",
+        "使用搜索引擎搜索，返回搜索结果，有兴趣/概括不全的页面自己单独浏览",
+        CONFIG.langSearch.apiKey == null,
+    ),
+
+    view_webpage: toolHelper(
+        async (p: { url: string } & ToolArguments) => {
+            const article = await fetchUrlAsMarkdown(p.url);
+            return new LongTextOutput(
+                JSON.stringify(article),
+                article.title + "\n" + article.excerpt,
+            );
+        },
+        "浏览网页",
+        "不支持交互式网页，仅获取网页正文内容，返回标题、简介和正文文本",
+    ),
+
     block: toolHelper(
         async (p: { id: number } & ToolArguments) => {
             return await napcat.delete_friend({ user_id: p.id, temp_block: true });
@@ -635,6 +676,18 @@ export const napcatTools = {
         '向私聊或群聊发送表情包如"group_id":"123456","sticker_id":6，在上下文中可不填类型和id',
     ),
 
+    process_friend_request: toolHelper(
+        async (p: { flag: string; approve: boolean; remark?: string } & ToolArguments) => {
+            await napcat.set_friend_add_request({
+                flag: p.flag,
+                approve: p.approve,
+            });
+            return "Success";
+        },
+        "处理好友请求",
+        "需要在收到好友请求后才能使用，需要传入的flag是好友请求中的flag，用于允许或拒绝添加好友请求。remark是对好友的备注，一般不用加，除非根据历史你发现需要备注一个昵称才能保持认出TA。",
+    ),
+
     wait_next: toolHelper(
         async (p: { min?: number; max?: number } & ToolArguments) => {
             if (!p.context.window) {
@@ -687,7 +740,9 @@ export const napcatMcpApplication = (() => {
 })();
 
 export const napcatToolDefined = (() =>
-    napcatMcpApplication.functions.map((f) => ({ type: "function", function: f })))();
+    napcatMcpApplication.functions
+        .map((f) => ({ type: "function", function: f }))
+        .filter((f) => !napcatTools[f.function.name as keyof typeof napcatTools].disabled))();
 
 export abstract class InjectOutput {
     abstract toolOutputPlaceholder(): string;
@@ -752,6 +807,30 @@ export class FileOutput extends InjectOutput {
                 file_data: this.file,
                 filename: this.filename,
             },
+        };
+    }
+}
+
+export class LongTextOutput extends InjectOutput {
+    constructor(
+        public text: string,
+        public description?: string,
+    ) {
+        super();
+    }
+
+    toolOutputPlaceholder(): string {
+        let t = "Text too long, will be sent in the next user message.";
+        if (this.description != null) {
+            t += " " + this.description;
+        }
+        return t;
+    }
+
+    output() {
+        return {
+            type: "text",
+            text: this.text,
         };
     }
 }

@@ -26,3 +26,23 @@ export function stringifyDurationSeconds(seconds: number): string {
         .map((u) => `${u.v}${u.label}`)
         .join("");
 }
+
+export function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout>;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error("Operation timed out"));
+    }, ms);
+  });
+
+  return Promise.race([
+    promise,
+    timeoutPromise
+  ]).finally(() => {
+    clearTimeout(timeoutId);
+  });
+}

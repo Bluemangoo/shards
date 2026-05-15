@@ -7,7 +7,12 @@ import {
     cached_get_stranger_display_name,
     cached_get_stranger_info,
 } from "./wrapper.ts";
-import { HintInjectedEvent, NapcatEvent } from "../types/event.ts";
+import {
+    HintInjectedEvent,
+    HintInjectedEventOf,
+    HintInjectedMessageEvent,
+    NapcatEvent,
+} from "../types/event.ts";
 import { EVENT_HINT_MAP } from "./filter.ts";
 import { GroupMessage } from "node-napcat-ts";
 import { NapcatResult } from "../types/napcat-api.ts";
@@ -23,12 +28,7 @@ export function stripGroupInfo(groupInfo: NapcatResult["get_group_info"]) {
 }
 
 export async function stripPoke(
-    event: Extract<
-        HintInjectedEvent,
-        {
-            hint: (typeof EVENT_HINT_MAP)["notice.notify.poke.group" | "notice.notify.poke.friend"];
-        }
-    >,
+    event: HintInjectedEventOf<"notice.notify.poke.group" | "notice.notify.poke.friend">,
 ) {
     let name1: string;
     let name2: string;
@@ -79,12 +79,7 @@ export async function stripPoke(
 }
 
 export async function stripBan(
-    event: Extract<
-        HintInjectedEvent,
-        {
-            hint: (typeof EVENT_HINT_MAP)["notice.group_ban.ban" | "notice.group_ban.lift_ban"];
-        }
-    >,
+    event: HintInjectedEventOf<"notice.group_ban.ban" | "notice.group_ban.lift_ban">,
 ) {
     let userName: string;
     let opName: string;
@@ -111,10 +106,7 @@ export async function stripBan(
 }
 
 export async function stripFullPrivateMessage(
-    event: Extract<
-        HintInjectedEvent,
-        { hint: (typeof EVENT_HINT_MAP)["message.private.friend" | "message.private.group"] }
-    >,
+    event: HintInjectedEventOf<"message.private.friend" | "message.private.group">,
 ) {
     let displayName;
     if (event.self_id == event.sender.user_id) {
@@ -132,14 +124,7 @@ export async function stripFullPrivateMessage(
     };
 }
 
-export async function stripFullGroupMessage(
-    event: Extract<
-        HintInjectedEvent,
-        {
-            hint: (typeof EVENT_HINT_MAP)["message.group.normal"];
-        }
-    >,
-) {
+export async function stripFullGroupMessage(event: HintInjectedEventOf<"message.group.normal">) {
     let isSelf = event.self_id == event.sender.user_id;
     let title: string | undefined = undefined;
     try {
@@ -166,15 +151,29 @@ export async function stripFullGroupMessage(
     };
 }
 
+export async function stripFriendAddRequest(event: HintInjectedEventOf<"request.friend">) {
+    return {
+        ...event,
+        tips: "这是一条好友申请，请调用工具做出处理。你有权拒绝不熟悉的人的好友请求。",
+    };
+}
+
+export async function getFriendAddRequestModelHint(event: HintInjectedEventOf<"request.friend">) {
+    const u = await cached_get_stranger_info(event.user_id);
+    const user = {
+        user_id: event.user_id,
+        remark: u.remark || undefined,
+        nickname: u.nickname,
+    };
+    return {
+        type: "私聊",
+        ...user,
+    };
+}
+
 export async function getGroupMessageModelHint(
-    event: Extract<
-        HintInjectedEvent,
-        {
-            hint: (typeof EVENT_HINT_MAP)[
-                | "message.group.normal"
-                | "notice.group_ban.ban"
-                | "notice.group_ban.lift_ban"];
-        }
+    event: HintInjectedEventOf<
+        "message.group.normal" | "notice.group_ban.ban" | "notice.group_ban.lift_ban"
     >,
 ) {
     return {
@@ -184,10 +183,7 @@ export async function getGroupMessageModelHint(
 }
 
 export async function getPrivateMessageModelHint(
-    event: Extract<
-        HintInjectedEvent,
-        { hint: (typeof EVENT_HINT_MAP)["message.private.friend" | "message.private.group"] }
-    >,
+    event: HintInjectedEventOf<"message.private.friend" | "message.private.group">,
 ) {
     let user:
         | {
@@ -261,12 +257,7 @@ export async function getPrivatePokeModelHint(event: NapcatEvent) {
 }
 
 export async function getGroupPokeModelHint(
-    event: Extract<
-        HintInjectedEvent,
-        {
-            hint: (typeof EVENT_HINT_MAP)["notice.notify.poke.group"];
-        }
-    >,
+    event: HintInjectedEventOf<"notice.notify.poke.group">,
 ) {
     return {
         type: "群聊",
@@ -274,65 +265,71 @@ export async function getGroupPokeModelHint(
     };
 }
 
-export async function injectPttText(e: HintInjectedEvent) {
-    if (e.post_type == "message") {
-        for (const seg of e.message) {
-            if (seg.type == "record") {
-                try {
-                    (seg.data as any).text = (await cached_fetch_ptt_text(e.message_id)).text;
-                } catch (e) {
-                    console.error("Failed to fetch ptt text", e);
-                }
+export async function injectPttText(e: HintInjectedMessageEvent) {
+    for (const seg of e.message) {
+        if (seg.type == "record") {
+            try {
+                (seg.data as any).text = (await cached_fetch_ptt_text(e.message_id)).text;
+            } catch (e) {
+                console.error("Failed to fetch ptt text", e);
             }
         }
     }
 }
 
-export async function injectAt(e: HintInjectedEvent) {
-    if (e.post_type == "message") {
-        const event = e as GroupMessage;
-        for (const seg of event.message) {
-            if (seg.type == "at") {
-                if (seg.data.qq == "all") {
-                    (<any>seg.data).stringified = "@全体成员";
-                    (<any>seg.data).include_self = true;
-                    (<any>seg.data).is_self = false;
-                } else {
-                    const strangerInfo = await cached_get_stranger_info(seg.data.qq);
-                    try {
-                        const userInfo = await cached_get_group_member_info(
-                            seg.data.qq,
-                            event.group_id,
-                        );
-                        const displayName = await cached_get_group_member_display_name(
-                            seg.data.qq,
-                            event.group_id,
-                        );
-                        (<any>seg.data).stringified = `@${displayName}`;
-                        (<any>seg.data).user = {
-                            user_id: userInfo.user_id,
-                            nickname: userInfo.nickname,
-                            card: userInfo.card || undefined,
-                            remark: strangerInfo.remark || undefined,
-                        };
-                        (<any>seg.data).include_self = (<any>seg.data).is_self =
-                            seg.data.qq == String(event.self_id);
-                    } catch (e) {
-                        console.error(
-                            `injectAt Failed to get member info ${seg.data.qq} in ${event.group_id}`,
-                            e,
-                        );
-                        const displayName =
-                            (await cached_get_stranger_display_name(seg.data.qq)) || seg.data.qq;
-                        (<any>seg.data).stringified = `@${displayName}`;
-                        (<any>seg.data).user = {
-                            user_id: strangerInfo.user_id,
-                            nickname: strangerInfo.nickname,
-                            remark: strangerInfo.remark || undefined,
-                        };
-                        (<any>seg.data).include_self = (<any>seg.data).is_self =
-                            seg.data.qq == String(event.self_id);
-                    }
+export async function injectJson(e: HintInjectedMessageEvent) {
+    for (const seg of e.message) {
+        if (seg.type == "json") {
+            try {
+                seg.data = JSON.parse(seg.data.data);
+            } catch {}
+        }
+    }
+}
+
+export async function injectAt(e: HintInjectedMessageEvent) {
+    const event = e as GroupMessage;
+    for (const seg of event.message) {
+        if (seg.type == "at") {
+            if (seg.data.qq == "all") {
+                (<any>seg.data).stringified = "@全体成员";
+                (<any>seg.data).include_self = true;
+                (<any>seg.data).is_self = false;
+            } else {
+                const strangerInfo = await cached_get_stranger_info(seg.data.qq);
+                try {
+                    const userInfo = await cached_get_group_member_info(
+                        seg.data.qq,
+                        event.group_id,
+                    );
+                    const displayName = await cached_get_group_member_display_name(
+                        seg.data.qq,
+                        event.group_id,
+                    );
+                    (<any>seg.data).stringified = `@${displayName}`;
+                    (<any>seg.data).user = {
+                        user_id: userInfo.user_id,
+                        nickname: userInfo.nickname,
+                        card: userInfo.card || undefined,
+                        remark: strangerInfo.remark || undefined,
+                    };
+                    (<any>seg.data).include_self = (<any>seg.data).is_self =
+                        seg.data.qq == String(event.self_id);
+                } catch (e) {
+                    console.error(
+                        `injectAt Failed to get member info ${seg.data.qq} in ${event.group_id}`,
+                        e,
+                    );
+                    const displayName =
+                        (await cached_get_stranger_display_name(seg.data.qq)) || seg.data.qq;
+                    (<any>seg.data).stringified = `@${displayName}`;
+                    (<any>seg.data).user = {
+                        user_id: strangerInfo.user_id,
+                        nickname: strangerInfo.nickname,
+                        remark: strangerInfo.remark || undefined,
+                    };
+                    (<any>seg.data).include_self = (<any>seg.data).is_self =
+                        seg.data.qq == String(event.self_id);
                 }
             }
         }
@@ -342,6 +339,10 @@ export async function injectAt(e: HintInjectedEvent) {
 export async function preStringifyEvent(event: HintInjectedEvent) {
     try {
         let postEvent;
+        if (event.post_type == "message") {
+            await injectPttText(event);
+            await injectJson(event);
+        }
         switch (event.hint) {
             case EVENT_HINT_MAP["notice.notify.poke.friend"]:
             case EVENT_HINT_MAP["notice.notify.poke.group"]:
@@ -351,13 +352,11 @@ export async function preStringifyEvent(event: HintInjectedEvent) {
             case EVENT_HINT_MAP["notice.group_ban.lift_ban"]:
                 postEvent = await stripBan(event);
                 break;
-            case EVENT_HINT_MAP["message.private.group"]:
-            case EVENT_HINT_MAP["message.private.friend"]:
-                await injectPttText(event);
-            // fallthrough
+            case EVENT_HINT_MAP["request.friend"]:
+                postEvent = await stripFriendAddRequest(event);
+                break;
             case EVENT_HINT_MAP["message.group.normal"]:
                 await injectAt(event);
-                await injectPttText(event);
             // fallthrough
             default:
                 postEvent = event;
@@ -406,6 +405,8 @@ export async function getModelHint<T extends HintInjectedEvent>(event: T) {
                 return await getPrivatePokeModelHint(event);
             case EVENT_HINT_MAP["notice.notify.poke.group"]:
                 return await getGroupPokeModelHint(event);
+            case EVENT_HINT_MAP["request.friend"]:
+                return await getFriendAddRequestModelHint(event);
             default:
                 return null;
         }

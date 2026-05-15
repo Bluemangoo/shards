@@ -125,7 +125,7 @@ class LongTermMemory {
                 }
                 fullMessageStr += msg.raw_message;
             }
-            if (msg.sub_type == "poke") {
+            if (msg.post_type == "notice" && msg.sub_type == "poke") {
                 try {
                     let groupId: number | undefined = undefined;
                     if (msg.hint == EVENT_HINT_MAP["notice.notify.poke.group"]) {

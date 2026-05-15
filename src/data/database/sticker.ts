@@ -28,6 +28,7 @@ class Sticker {
         if (exist) {
             return exist;
         }
+        console.log("Creating sticker description for" + fileId);
         let fileName;
         try {
             const f = await napcat.get_image({ file: fileId });

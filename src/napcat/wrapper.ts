@@ -1,9 +1,9 @@
 import { napcat } from "./client.ts";
 import { fetch_ptt_text } from "./extra-api.ts";
 
-function memoize<T, P extends (...args: any[]) => Promise<T>>(fn: P, ttlMs: number = 600000): P {
+function memoize<T, P extends (...args: any) => Promise<T>>(fn: P, ttlMs: number = 10 * 60_000): P {
     const cache = new Map<string, { value: T; expires: number }>();
-    const f = async (...args: any[]): Promise<T> => {
+    const f = async (...args: Parameters<P>): Promise<T> => {
         const key = JSON.stringify(args);
         const now = Date.now();
         const cached = cache.get(key);

@@ -15,3 +15,15 @@ export type HintInjectedEvent = {
         hint: (typeof EVENT_HINT_MAP)[K];
     } & (K extends keyof ExtraFieldsMap ? ExtraFieldsMap[K] : unknown);
 }[keyof typeof EVENT_HINT_MAP];
+export type HintInjectedMessageEvent = Extract<
+    HintInjectedEvent,
+    {
+        post_type: "message";
+    }
+>;
+export type HintInjectedEventOf<T extends keyof typeof EVENT_HINT_MAP> = Extract<
+    HintInjectedEvent,
+    {
+        hint: (typeof EVENT_HINT_MAP)[T];
+    }
+>;
