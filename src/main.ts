@@ -8,12 +8,14 @@ import { onEventBatch } from "./main_loop/life-cycle.ts";
 import workingMemory from "./model/working-memory.ts";
 import { consoleLoop } from "./main_loop/console-loop.ts";
 import { dreamingLoop } from "./main_loop/dreaming-loop.ts";
+import { initFace } from "./utils/qface.ts";
 
 export const eventStack = new EventStack<ChatWindow, HintInjectedEvent>(5);
 export default async function main() {
     const runningTasks: Promise<any>[] = [];
     await initDb();
     console.log("Database initialized");
+    await initFace();
     consoleLoop();
     await workingMemory.load();
     registerNapcat(napcat);

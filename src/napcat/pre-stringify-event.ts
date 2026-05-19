@@ -17,6 +17,8 @@ import { EVENT_HINT_MAP } from "./filter.ts";
 import { GroupMessage } from "node-napcat-ts";
 import { NapcatResult } from "../types/napcat-api.ts";
 import { stringifyDurationSeconds } from "../utils/time.ts";
+import { getFace } from "../utils/qface.ts";
+import { removeLeading } from "../utils/string.ts";
 
 export function stripGroupInfo(groupInfo: NapcatResult["get_group_info"]) {
     return {
@@ -287,6 +289,20 @@ export async function injectJson(e: HintInjectedMessageEvent) {
     }
 }
 
+export async function stripeFace(event: HintInjectedMessageEvent) {
+    for (const seg of event.message) {
+        if (seg.type == "face") {
+            const face = getFace(seg.data.id);
+            if (face) {
+                (seg.data as any) = {
+                    face_id: seg.data.id,
+                    describe: removeLeading(face.describe, "/"),
+                };
+            }
+        }
+    }
+}
+
 export async function injectAt(e: HintInjectedMessageEvent) {
     const event = e as GroupMessage;
     for (const seg of event.message) {
@@ -342,6 +358,7 @@ export async function preStringifyEvent(event: HintInjectedEvent) {
         if (event.post_type == "message") {
             await injectPttText(event);
             await injectJson(event);
+            await stripeFace(event);
         }
         switch (event.hint) {
             case EVENT_HINT_MAP["notice.notify.poke.friend"]:
