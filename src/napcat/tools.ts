@@ -7,6 +7,7 @@ import { fullStripEvent, preStringifyEvent } from "./pre-stringify-event.ts";
 import { EventStore } from "../data/database/event-store.ts";
 import {
     cached_get_forward_message,
+    cached_get_friend_info,
     cached_get_friend_list,
     cached_get_group_info,
     cached_get_stranger_display_name,
@@ -47,19 +48,40 @@ export const napcatTools = {
                     }
                 }
             }
+            const isPrivate = p.user_id != null;
+            if (p.context.window && p.context.window.type === "group") {
+                p.group_id = p.group_id || Number(p.context.window.id);
+            }
+            if (
+                p.context.window &&
+                p.context.window.type === "private" &&
+                p.context.window.fromGroup != null
+            ) {
+                p.group_id = p.group_id || Number(p.context.window.fromGroup);
+            }
 
             let result;
             let injectInfo: Record<string, any> = {};
-            if (p.group_id != null) {
+            if (!isPrivate) {
                 result = await napcat.send_msg({
-                    group_id: p.group_id,
+                    group_id: p.group_id!,
                     message: <any>p.message, // support string msg
                 });
             } else {
+                // check is friend
+                let withGroupId = false;
+                try {
+                    const f = await cached_get_friend_info(p.user_id!);
+                    if (f == null) {
+                        withGroupId = true;
+                    }
+                } catch {}
                 result = await napcat.send_msg({
+                    message_type: "private", // 如果带了 group_id 会默认发群消息，需要手动写一下 message_type
                     user_id: p.user_id!,
                     message: <any>p.message,
-                });
+                    group_id: withGroupId ? p.group_id : undefined, // 群临时会话
+                } as any);
                 injectInfo.user_id = p.user_id!;
             }
 
@@ -69,7 +91,7 @@ export const napcatTools = {
             return result;
         },
         "发送消息",
-        '发送私聊或群聊消息如"message_type":"group","group_id":"123456","message":"hello"，在上下文中可不填类型和id，简单消息用字符串类型即可',
+        '发送私聊或群聊消息如"message_type":"group","group_id":"123456","message":"hello"，在上下文中可不填类型和id，简单消息用字符串类型即可；如果上下文为群聊而向没加好友的群友发私聊消息会尝试发送临时会话的消息，这时发送成功不代表和对方加上好友了。',
     ),
 
     poke: toolHelper(

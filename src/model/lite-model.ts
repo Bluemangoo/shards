@@ -48,7 +48,7 @@ class LiteModel {
         const currentWorkingMemory = workingMemory.list();
         const stripedMessages = await Promise.all(messages.map((msg) => fullStripEvent(msg)));
         const model_messages: any[] = [
-            ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
+            ...PROMPTS.vibe.map((s) => ({ role: "system", content: "语言使用参考：" + s })),
             { role: "system", content: PROMPTS.workingMemory },
         ];
 
@@ -183,7 +183,7 @@ class LiteModel {
         const windowContext = await getModelHint(messages[0]);
         const stripedMessages = await Promise.all(messages.map((msg) => fullStripEvent(msg)));
         const model_messages: any[] = [
-            ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
+            ...PROMPTS.vibe.map((s) => ({ role: "system", content: "语言使用参考：" + s })),
             { role: "system", content: PROMPTS.memoryAdd },
         ];
         const data = [];
@@ -229,7 +229,7 @@ class LiteModel {
         undreamed_alive: WorkingMemoryItem[];
     }) {
         const model_messages: any[] = [
-            ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
+            ...PROMPTS.vibe.map((s) => ({ role: "system", content: "语言使用参考：" + s })),
             { role: "system", content: PROMPTS.dreaming },
         ];
         model_messages.push({
