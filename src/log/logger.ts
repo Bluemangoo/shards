@@ -1,4 +1,6 @@
 import * as util from "node:util";
+import { wsLoggerHandler } from "./ws.ts";
+import CONFIG from "../data/config/config.ts";
 
 export namespace Logger {
     export class Logger {
@@ -15,7 +17,11 @@ export namespace Logger {
         protected stringify: Stringify = (args: any[]) => {
             const rendered: string[] = [];
             for (const arg of args) {
-                rendered.push(util.inspect(arg, { colors: true }));
+                if (typeof arg == "string") {
+                    rendered.push(arg);
+                } else {
+                    rendered.push(util.inspect(arg, { colors: true }));
+                }
             }
             return rendered.join(" ");
         };
@@ -47,9 +53,10 @@ export namespace Logger {
 
 const logger = new Logger.Logger();
 
-logger.register(["info"], (_level, _label, args, _fn) => console.info(...args));
-logger.register(["warn"], (_level, _label, args, _fn) => console.warn(...args));
-logger.register(["error"], (_level, _label, args, _fn) => console.error(...args));
+logger.register(["info", "warn", "error"], (level, _label, args, _fn) => console[level](...args));
 // tips: 需要额外的面板观测自己在这里注册钩子拿打完标签的日志。
+if (CONFIG.logViewer.wsPort) {
+    logger.register(["info", "warn", "error"], wsLoggerHandler);
+}
 
 export default logger;

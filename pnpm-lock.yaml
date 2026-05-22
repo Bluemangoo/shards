@@ -31,7 +31,7 @@ importers:
         version: 0.4.25
       openai:
         specifier: ^6.34.0
-        version: 6.34.0(ws@8.20.0)(zod@3.25.76)
+        version: 6.34.0(ws@8.20.1)(zod@3.25.76)
       pg:
         specifier: ^8.20.0
         version: 8.20.0
@@ -50,6 +50,9 @@ importers:
       typia:
         specifier: ^12.0.2
         version: 12.0.2(@types/node@25.6.0)(typescript@5.9.3)
+      ws:
+        specifier: ^8.20.1
+        version: 8.20.1
     devDependencies:
       '@types/mime-types':
         specifier: ^3.0.1
@@ -60,6 +63,9 @@ importers:
       '@types/turndown':
         specifier: ^5.0.6
         version: 5.0.6
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
@@ -169,6 +175,9 @@ packages:
 
   '@types/turndown@5.0.6':
     resolution: {integrity: sha512-ru00MoyeeouE5BX4gRL+6m/BsDfbRayOskWqUvh7CLGW+UXxHQItqALa38kKnOiZPqJrtzJUgAC2+F0rL1S4Pg==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@types/yauzl@2.10.3':
     resolution: {integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==}
@@ -1083,8 +1092,8 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
-  ws@8.20.0:
-    resolution: {integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==}
+  ws@8.20.1:
+    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -1228,6 +1237,10 @@ snapshots:
       pg-types: 2.2.0
 
   '@types/turndown@5.0.6': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 25.6.0
 
   '@types/yauzl@2.10.3':
     dependencies:
@@ -1677,9 +1690,9 @@ snapshots:
 
   isexe@3.1.5: {}
 
-  isomorphic-ws@5.0.0(ws@8.20.0):
+  isomorphic-ws@5.0.0(ws@8.20.1):
     dependencies:
-      ws: 8.20.0
+      ws: 8.20.1
 
   js-tokens@4.0.0: {}
 
@@ -1736,9 +1749,9 @@ snapshots:
 
   node-napcat-ts@0.4.25:
     dependencies:
-      isomorphic-ws: 5.0.0(ws@8.20.0)
+      isomorphic-ws: 5.0.0(ws@8.20.1)
       nanoid: 5.1.9
-      ws: 8.20.0
+      ws: 8.20.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -1757,9 +1770,9 @@ snapshots:
     dependencies:
       mimic-fn: 2.1.0
 
-  openai@6.34.0(ws@8.20.0)(zod@3.25.76):
+  openai@6.34.0(ws@8.20.1)(zod@3.25.76):
     optionalDependencies:
-      ws: 8.20.0
+      ws: 8.20.1
       zod: 3.25.76
 
   ora@5.4.1:
@@ -1898,7 +1911,7 @@ snapshots:
       devtools-protocol: 0.0.1608973
       typed-query-selector: 2.12.2
       webdriver-bidi-protocol: 0.4.1
-      ws: 8.20.0
+      ws: 8.20.1
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer
@@ -2153,7 +2166,7 @@ snapshots:
 
   wrappy@1.0.2: {}
 
-  ws@8.20.0: {}
+  ws@8.20.1: {}
 
   xtend@4.0.2: {}
 

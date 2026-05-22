@@ -71,6 +71,12 @@ create table long_term_memory
 
 觉得自己模型快的飞起的可以把LongTermMemory的fullSearch改回用extendFullMemorySearch的。
 
+### 外部日志查看器
+
+写了一个简单的例子，需要复杂的自己看着例子改，在 `src/utils/logger.ts` 里注册你的 handler 就好了。
+
+需要看例子的，把env的`LOG_WS_PORT`改成你想要的端口，前端实例在[log-viewer](https://github.com/Bluemangoo/log-viewer)，把构建后文件复制到frontend目录下就可以了。
+
 ## 架构
 
 Shards 采用多层架构，将消息接收、推理决策与记忆整理异步分离。

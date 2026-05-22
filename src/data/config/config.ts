@@ -2,7 +2,7 @@ import { requireNonNull } from "../../utils/obj.ts";
 import init from "../../init.ts";
 
 function generateConfig() {
-    init()
+    init();
 
     return {
         napcat: {
@@ -34,6 +34,9 @@ function generateConfig() {
         },
         langSearch: {
             apiKey: process.env.LANG_SEARCH_API_KEY,
+        },
+        logViewer: {
+            wsPort: process.env.LOG_WS_PORT ? Number(process.env.LOG_WS_PORT) : undefined,
         },
     };
 }
