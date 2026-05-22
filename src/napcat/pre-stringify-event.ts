@@ -19,6 +19,7 @@ import { NapcatResult } from "../types/napcat-api.ts";
 import { stringifyDurationSeconds } from "../utils/time.ts";
 import { getFace } from "../utils/qface.ts";
 import { removeLeading } from "../utils/string.ts";
+import logger from "../log/logger.ts";
 
 export function stripGroupInfo(groupInfo: NapcatResult["get_group_info"]) {
     return {
@@ -133,7 +134,8 @@ export async function stripFullGroupMessage(event: HintInjectedEventOf<"message.
         const senderInfo = await cached_get_group_member_info(event.sender.user_id, event.group_id);
         title = senderInfo.title;
     } catch (e) {
-        console.error(
+        logger.error(
+            ["pre-message", "lifecycle"],
             `stripFullGroupMessage: Failed to get member info ${event.sender.user_id} in ${event.group_id}`,
             e,
         );
@@ -206,7 +208,8 @@ export async function getPrivateMessageModelHint(
                 from: stripGroupInfo(await cached_get_group_info(event.group_id)),
             };
         } catch (e) {
-            console.error(
+            logger.warn(
+                ["get-model-hint", "lifecycle"],
                 `getPrivateMessageModelHint Failed to get member info ${event.user_id} in ${event.group_id}`,
                 e,
             );
@@ -273,7 +276,7 @@ export async function injectPttText(e: HintInjectedMessageEvent) {
             try {
                 (seg.data as any).text = (await cached_fetch_ptt_text(e.message_id)).text;
             } catch (e) {
-                console.error("Failed to fetch ptt text", e);
+                logger.error(["pre-message", "lifecycle"], "Failed to fetch ptt text", e);
             }
         }
     }
@@ -332,7 +335,8 @@ export async function injectAt(e: HintInjectedMessageEvent) {
                     (<any>seg.data).include_self = (<any>seg.data).is_self =
                         seg.data.qq == String(event.self_id);
                 } catch (e) {
-                    console.error(
+                    logger.warn(
+                        ["pre-message", "lifecycle"],
                         `injectAt Failed to get member info ${seg.data.qq} in ${event.group_id}`,
                         e,
                     );
@@ -380,7 +384,7 @@ export async function preStringifyEvent(event: HintInjectedEvent) {
         }
         return postEvent;
     } catch (e) {
-        console.error("Failed to stripe event", event, e);
+        logger.error(["pre-message", "lifecycle"], "Failed to stripe event", event, e);
         return event;
     }
 }
@@ -403,7 +407,7 @@ export async function fullStripEvent(event: HintInjectedEvent) {
         dateInjected.formatted_time = date.toLocaleDateString() + " " + date.toLocaleTimeString();
         return dateInjected;
     } catch (e) {
-        console.error("Failed to full stripe event", event, e);
+        logger.error(["pre-message", "lifecycle"], "Failed to full stripe event", event, e);
         return event;
     }
 }
@@ -428,7 +432,7 @@ export async function getModelHint<T extends HintInjectedEvent>(event: T) {
                 return null;
         }
     } catch (e) {
-        console.error("Failed to get model hint", event, e);
+        logger.error(["get-model-hint", "lifecycle"], "Failed to get model hint", event, e);
         return null;
     }
 }

@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import CONFIG from "../data/config/config.ts";
 import { LlmJson } from "@typia/utils";
 import PROMPTS from "../data/config/prompts.ts";
+import logger from "../log/logger.ts";
 
 type ImageParseResult = {
     summary: string;
@@ -49,7 +50,10 @@ class ImageModel {
             messages: model_messages,
         });
 
-        console.log(response.choices[0].message);
+        logger.info(
+            ["model", "image-model", "parse-image", "model-message"],
+            response.choices[0].message,
+        );
         const content = response.choices[0].message.content;
         if (content == null) {
             return null;

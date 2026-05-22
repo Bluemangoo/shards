@@ -9,6 +9,7 @@ import { liteModel } from "../model/lite-model.ts";
 import { longTermMemory } from "../model/long-term-memory.ts";
 import { loginInfo } from "../napcat/client.ts";
 import { deepContains } from "../utils/obj.ts";
+import logger from "../log/logger.ts";
 
 export async function storeEvent(event: HintInjectedEvent) {
     await EventStore.push_event(event);
@@ -53,7 +54,7 @@ function shouldInstantlyProcess(event: HintInjectedEvent) {
 }
 
 export async function onEvent(event: HintInjectedEvent) {
-    console.log("Received event:", JSON.stringify(event));
+    logger.info(["napcat", "new-event"], "Received event:", JSON.stringify(event));
     const window = ChatWindow.fromEvent(event);
     await history.getWindowHistory(window); // try init
     await storeEvent(event);
@@ -86,11 +87,15 @@ async function processWorkingMemory(
     history: ConsumedEvent[],
 ) {
     try {
-        console.log("Processing working memory");
+        logger.info(["model", "lite-model", "working-memory"], "Processing working memory");
         await liteModel.processWorkingMemory(batch, trace, history);
-        console.log("Saved working memory");
+        logger.info(["model", "lite-model", "working-memory"], "Saved working memory");
     } catch (e) {
-        console.error("Failed to process working memory", e);
+        logger.error(
+            ["model", "lite-model", "working-memory"],
+            "Failed to process working memory",
+            e,
+        );
     }
 }
 
@@ -100,10 +105,17 @@ async function processLongTermMemory(
     history: ConsumedEvent[],
 ) {
     try {
-        console.log("Processing long-term memory");
+        logger.info(
+            ["model", "lite-model", "long-term-memory", "add"],
+            "Processing long-term memory",
+        );
         await longTermMemory.addFromEvent(batch, trace, history);
-        console.log("Saved long-term memory");
+        logger.info(["model", "lite-model", "long-term-memory", "add"], "Saved long-term memory");
     } catch (e) {
-        console.error("Failed to process long-term memory", e);
+        logger.info(
+            ["model", "lite-model", "long-term-memory", "add"],
+            "Failed to process long-term memory",
+            e,
+        );
     }
 }

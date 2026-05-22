@@ -3,6 +3,7 @@ import workingMemory, { WorkingMemoryItem } from "./working-memory.ts";
 import { splitLists } from "../utils/list.ts";
 import { liteModel } from "./lite-model.ts";
 import { longTermMemory } from "./long-term-memory.ts";
+import logger from "../log/logger.ts";
 
 export async function dreaming() {
     await precipitate();
@@ -21,6 +22,7 @@ async function precipitate(force = false) {
     if (!force && undreamed.length < 20) {
         return;
     }
+    logger.info(["model", "lite-model", "long-term-memory", "dreaming"], "start dreaming");
     const current = workingMemory.list();
     const splitResult = splitLists(current, undreamed, "key");
     // inA == alive; inB == undreamed
@@ -36,5 +38,5 @@ async function precipitate(force = false) {
     await db().query("update working_memory set dreamed = true where id = any($1::int[])", [
         undreamed.map((item) => item.key),
     ]);
-    console.log("dreaming completed");
+    logger.info(["model", "lite-model", "long-term-memory", "dreaming"], "dreaming completed");
 }

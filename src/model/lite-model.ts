@@ -6,6 +6,7 @@ import workingMemory, { WorkingMemoryItem } from "./working-memory.ts";
 import { LlmJson } from "@typia/utils";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
 import PROMPTS from "../data/config/prompts.ts";
+import logger from "../log/logger.ts";
 
 type SearchExtendedAnswer = {
     keywords: string | string[];
@@ -82,7 +83,10 @@ class LiteModel {
             temperature: this.temperature,
         });
 
-        console.log(response.choices[0].message);
+        logger.info(
+            ["model", "lite-model", "working-memory", "model-message"],
+            response.choices[0].message,
+        );
         const content = response.choices[0].message.content;
         if (content) {
             await workingMemory.execModelOutput(content);
@@ -100,7 +104,10 @@ class LiteModel {
             reasoning_effort: "low",
         });
 
-        console.log(response.choices[0].message);
+        logger.info(
+            ["model", "lite-model", "long-term-memory", "extend-search", "model-message"],
+            response.choices[0].message,
+        );
         const content = response.choices[0].message.content;
         if (content == null) {
             return {
@@ -151,7 +158,10 @@ class LiteModel {
             temperature: this.temperature,
         });
 
-        console.log(response.choices[0].message);
+        logger.info(
+            ["model", "lite-model", "long-term-memory", "extend-full-search", "model-message"],
+            response.choices[0].message,
+        );
         const content = response.choices[0].message.content;
         if (content == null) {
             return [];
@@ -211,7 +221,10 @@ class LiteModel {
             reasoning_effort: "medium",
             temperature: this.temperature,
         });
-        console.log(response.choices[0].message);
+        logger.info(
+            ["model", "lite-model", "long-term-memory", "add", "model-message"],
+            response.choices[0].message,
+        );
         const content = response.choices[0].message.content;
         if (content == null) {
             return [];
@@ -242,7 +255,10 @@ class LiteModel {
             reasoning_effort: "high",
             temperature: this.temperature,
         });
-        console.log(response.choices[0].message);
+        logger.info(
+            ["model", "lite-model", "long-term-memory", "dreaming", "model-message"],
+            response.choices[0].message,
+        );
         const content = response.choices[0].message.content;
         if (content == null) {
             return [];

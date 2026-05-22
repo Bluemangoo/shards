@@ -3,6 +3,7 @@ import db from "./db.ts";
 import { downloadFileWithAutoExt } from "../../utils/net.ts";
 import { imageModel } from "../../model/image-model.ts";
 import { napcat } from "../../napcat/client.ts";
+import logger from "../../log/logger.ts";
 
 export interface ImageDescriptionData {
     id: number;
@@ -28,7 +29,10 @@ class Sticker {
         if (exist) {
             return exist;
         }
-        console.log("Creating sticker description for" + fileId);
+        logger.info(
+            ["model", "image-model", "parse-image"],
+            "Creating sticker description for" + fileId,
+        );
         let fileName;
         try {
             const f = await napcat.get_image({ file: fileId });

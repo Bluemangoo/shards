@@ -26,6 +26,7 @@ import { NapcatResult } from "../types/napcat-api.ts";
 import { fetchUrlAsMarkdown } from "../utils/browse.ts";
 import axios from "axios";
 import CONFIG from "../data/config/config.ts";
+import logger from "../log/logger.ts";
 
 export const napcatTools = {
     /**
@@ -395,7 +396,7 @@ export const napcatTools = {
                     return new ImageOutput(fileToBase64Url(f.file));
                 }
             } catch (e) {
-                console.error(e);
+                logger.warn(["tool-call", "napcat"], e);
             }
             return new ImageOutput(await urlToDataUrl(p.image_url));
         },
@@ -687,7 +688,11 @@ export const napcatTools = {
                         message.message[0].data.file,
                     );
                 } catch (e) {
-                    console.error(`Failed to update file id for sticker ${s.id}`, e);
+                    logger.error(
+                        ["tool-call", "sticker", "database"],
+                        `Failed to update file id for sticker ${s.id}`,
+                        e,
+                    );
                 }
             }
 

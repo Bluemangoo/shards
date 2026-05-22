@@ -9,12 +9,13 @@ import workingMemory from "./model/working-memory.ts";
 import { consoleLoop } from "./main_loop/console-loop.ts";
 import { dreamingLoop } from "./main_loop/dreaming-loop.ts";
 import { initFace } from "./utils/qface.ts";
+import logger from "./log/logger.ts";
 
 export const eventStack = new EventStack<ChatWindow, HintInjectedEvent>(5);
 export default async function main() {
     const runningTasks: Promise<any>[] = [];
     await initDb();
-    console.log("Database initialized");
+    logger.info(["database"], "Database initialized");
     await initFace();
     consoleLoop();
     await workingMemory.load();
@@ -23,7 +24,7 @@ export default async function main() {
         napcat.connect().then(async () => {
             const info = await napcat.get_login_info();
             loginInfo.data = info;
-            console.log(`Napcat connected: ${info.nickname} (${info.user_id})`);
+            logger.info(["napcat"], `Napcat connected: ${info.nickname} (${info.user_id})`);
         }),
     );
     runningTasks.push(listenStack());
@@ -36,7 +37,7 @@ async function listenStack() {
         try {
             await onEventBatch(window, stack);
         } catch (e) {
-            console.error(e);
+            logger.error(["lifecycle", "model"], e);
             // await sleep(5000);
             confirm(false);
         }

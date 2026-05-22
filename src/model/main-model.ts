@@ -15,6 +15,7 @@ import { longTermMemory } from "./long-term-memory.ts";
 import { Receive } from "node-napcat-ts/dist/Structs";
 import { sticker } from "../data/database/sticker.ts";
 import PROMPTS from "../data/config/prompts.ts";
+import logger from "../log/logger.ts";
 
 class MainModel {
     client: OpenAI;
@@ -41,7 +42,8 @@ class MainModel {
         history: ConsumedEvent[],
         context: ModelContext,
     ) {
-        console.log(
+        logger.info(
+            ["model", "life-cycle"],
             "Responding to chat with messages:",
             messages.length,
             "and history:",
@@ -70,7 +72,12 @@ class MainModel {
                         searchExtra.push((<any>windowContext).user.nickname);
                     }
                     const memory = await longTermMemory.fullSearch(messages, history, searchExtra);
-                    console.log("Found", memory.length, "relevant long-term memory items");
+                    logger.info(
+                        ["model", "life-cycle", "long-term-memory"],
+                        "Found",
+                        memory.length,
+                        "relevant long-term memory items",
+                    );
                     model_messages.push({
                         role: "system",
                         content: JSON.stringify({
@@ -85,7 +92,11 @@ class MainModel {
                         }),
                     });
                 } catch (e) {
-                    console.error("Failed to search memory, skipped:", e);
+                    logger.error(
+                        ["model", "life-cycle", "long-term-memory"],
+                        "Failed to search memory, skipped:",
+                        e,
+                    );
                 }
             })(),
         );
@@ -101,7 +112,11 @@ class MainModel {
                     }
                     await stickerInjector.process();
                 } catch (e) {
-                    console.error("Failed to inject sticker description", e);
+                    logger.info(
+                        ["model", "life-cycle", "parse-image"],
+                        "Failed to inject sticker description",
+                        e,
+                    );
                 }
             })(),
         );
@@ -188,7 +203,11 @@ class MainModel {
 
         model_messages.push({ role: "user", content: JSON.stringify(new_messages_payload) });
 
-        console.log("Requesting main model", model_messages);
+        logger.info(
+            ["model", "main-model", "model-input"],
+            "Requesting main model",
+            model_messages,
+        );
         let firstCalled = true;
 
         while (true) {
@@ -205,14 +224,14 @@ class MainModel {
                 if (firstCalled) {
                     throw e;
                 }
-                console.error(e);
+                logger.error(["model", "main-model", "lifecycle"], e);
                 trace.push("!!Uncommon thinking stop, maybe not finished.");
                 break;
             }
             firstCalled = false;
 
             const response_message = response.choices[0].message;
-            console.log(response_message);
+            logger.info(["model", "main-model", "model-message", "lifecycle"], response_message);
 
             const reasoning =
                 (response_message as any).reasoning_content || (response_message as any).reasoning;
@@ -240,7 +259,10 @@ class MainModel {
                 const function_args = tool_call.function.arguments;
 
                 trace.push(`Tool call: ${function_name} with args: ${function_args}`);
-                console.log(`Tool call: ${function_name} with args: ${function_args}`);
+                logger.info(
+                    ["model", "main-model", "tool-call", "lifecycle"],
+                    `Tool call: ${function_name} with args: ${function_args}`,
+                );
 
                 let to_upload: any = null;
                 let tool_result: any;
@@ -286,8 +308,11 @@ class MainModel {
                     tool_result = `error: ${str}`;
                 }
 
-                trace.push(`Tool result: ${String(tool_result).slice(0, 256)}`);
-                console.log(`Tool result: ${String(tool_result).slice(0, 256)}`);
+                trace.push(`Tool result: ${String(tool_result).slice(0, 1024)}`);
+                logger.info(
+                    ["model", "main-model", "tool-call", "lifecycle"],
+                    `Tool result: ${String(tool_result).slice(0, 256)}`,
+                );
 
                 // 反馈工具结果
                 model_messages.push({
@@ -335,7 +360,7 @@ class StickerInjector {
 
     async process() {
         const tasks: Promise<void>[] = [];
-        console.log("Processing sticker", [...this.map.keys()]);
+        logger.info(["parse-image", "lifecycle"], "Processing sticker", [...this.map.keys()]);
         for (const entry of this.map.entries()) {
             tasks.push(this.processOne(entry[0], entry[1]));
         }
