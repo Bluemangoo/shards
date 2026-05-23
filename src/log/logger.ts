@@ -20,7 +20,7 @@ export namespace Logger {
                 if (typeof arg == "string") {
                     rendered.push(arg);
                 } else {
-                    rendered.push(util.inspect(arg, { colors: true }));
+                    rendered.push(util.inspect(arg, { colors: true, depth: 3 }));
                 }
             }
             return rendered.join(" ");

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import axios, { AxiosError } from "axios";
+import logger from "../log/logger.ts";
 
 const META_URL =
     "https://raw.githubusercontent.com/koishijs/QFace/refs/heads/master/public/assets/qq_emoji/_index.json";
@@ -45,7 +46,7 @@ export async function initFace() {
             if (error instanceof AxiosError) {
                 error = error.cause;
             }
-            console.warn("Failed to update qface meta", error);
+            logger.warn(["qface"], "Failed to update qface meta", error);
         });
     }
 }

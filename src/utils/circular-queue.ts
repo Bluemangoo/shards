@@ -23,6 +23,8 @@ export default class CircularQueue<T> {
         this.tail = (this.tail + 1) % this.capacity;
         if (!this.is_full()) {
             this.size++;
+        } else {
+            this.head = (this.head + 1) % this.capacity;
         }
     }
 

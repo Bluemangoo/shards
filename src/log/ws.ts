@@ -14,6 +14,78 @@ type Line = {
 };
 const connectPool = new Set<WebSocket>();
 const pool = new CircularQueue<Line>(500);
+const logFilePath = path.join(process.cwd(), "data", "app.log");
+function loadLogs(targetZeroCount = 501) {
+    let fd;
+    try {
+        fd = fs.openSync(logFilePath, "r");
+
+        const stat = fs.fstatSync(fd);
+        const fileSize = stat.size;
+
+        if (fileSize === 0) return;
+
+        const CHUNK_SIZE = 64 * 1024;
+        const buffer = Buffer.alloc(CHUNK_SIZE);
+
+        let position = fileSize;
+        let zeroCount = 0;
+        let targetPos = 0;
+
+        while (position > 0) {
+            const bytesToRead = Math.min(CHUNK_SIZE, position);
+            position -= bytesToRead;
+
+            fs.readSync(fd, buffer, 0, bytesToRead, position);
+
+            for (let i = bytesToRead - 1; i >= 0; i--) {
+                if (buffer[i] === 0x00) {
+                    zeroCount++;
+                    if (zeroCount === targetZeroCount) {
+                        targetPos = position + i + 1;
+                        break;
+                    }
+                }
+            }
+
+            if (zeroCount === targetZeroCount) {
+                break;
+            }
+        }
+
+        const lengthToRead = fileSize - targetPos;
+        if (lengthToRead <= 0) return;
+
+        const resultBuffer = Buffer.alloc(lengthToRead);
+        fs.readSync(fd, resultBuffer, 0, lengthToRead, targetPos);
+
+        for (const s of resultBuffer.toString("utf8").split("\0")) {
+            try {
+                const line = JSON.parse(s);
+                if (
+                    typeof line.level === "string" &&
+                    Array.isArray(line.labels) &&
+                    typeof line.content === "string"
+                ) {
+                    pool.push(line);
+                }
+            } catch {}
+        }
+    } catch (err) {
+        return;
+    } finally {
+        if (fd !== undefined) {
+            try {
+                fs.closeSync(fd);
+            } catch (closeErr) {}
+        }
+    }
+}
+loadLogs();
+const logStream = fs.createWriteStream(logFilePath, { flags: "a" });
+logStream.on("error", (err) => {
+    console.error("日志文件流发生错误:", err);
+});
 export const wsLoggerHandler: Logger.Processor = async (level, labels, args, stringify) => {
     const line = {
         level,
@@ -21,8 +93,12 @@ export const wsLoggerHandler: Logger.Processor = async (level, labels, args, str
         content: stringify(args),
     };
     pool.push(line);
+    logStream.write(JSON.stringify(line) + "\0");
+    const txt = JSON.stringify(line);
     for (const ws of connectPool) {
-        ws.send(JSON.stringify(line));
+        try {
+            ws.send(txt);
+        } catch {}
     }
 };
 
