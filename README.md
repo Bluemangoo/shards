@@ -1,4 +1,4 @@
-# Shards- AI Agent Bot
+# Shards - AI Agent Bot
 
 Shards 是一个基于 NapCat 和大语言模型构建的高级 QQ 机器人。它不仅能进行日常交流，还拥有复杂的双层记忆架构（工作记忆与长期记忆），并能在后台通过“做梦”机制自动沉淀知识和群组氛围。
 
@@ -75,7 +75,7 @@ create table long_term_memory
 
 写了一个简单的例子，需要复杂的自己看着例子改，在 `src/utils/logger.ts` 里注册你的 handler 就好了。
 
-需要看例子的，把env的`LOG_WS_PORT`改成你想要的端口，前端实例在[log-viewer](https://github.com/Bluemangoo/log-viewer)，把构建后文件复制到frontend目录下就可以了。
+需要看例子的，把env的`LOG_WS_PORT`改成你想要的端口，前端示例在[log-viewer](https://github.com/Bluemangoo/log-viewer)，把构建后文件复制到frontend目录下就可以了。
 
 ## 架构
 
