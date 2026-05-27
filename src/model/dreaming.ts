@@ -27,9 +27,9 @@ async function precipitate(force = false) {
     const splitResult = splitLists(current, undreamed, "key");
     // inA == alive; inB == undreamed
     const wm = {
-        dreamed_alive: splitResult.onlyInA,
-        undreamed_expired: splitResult.onlyInB,
-        undreamed_alive: splitResult.inBoth,
+        dreamed_alive: splitResult.onlyInA.sort((a, b) => a.key - b.key),
+        undreamed_expired: splitResult.onlyInB.sort((a, b) => a.key - b.key),
+        undreamed_alive: splitResult.inBoth.sort((a, b) => a.key - b.key),
     };
     const result = await liteModel.dreaming(wm);
     for (const entry of result) {

@@ -7,6 +7,7 @@ import { LlmJson } from "@typia/utils";
 import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
 import PROMPTS from "../data/config/prompts.ts";
 import logger from "../log/logger.ts";
+import { validateModelResponse } from "../utils/model.ts";
 
 type SearchExtendedAnswer = {
     keywords: string | string[];
@@ -79,9 +80,12 @@ class LiteModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            stream: false,
             reasoning_effort: "low",
             temperature: this.temperature,
         });
+
+        validateModelResponse(response);
 
         logger.info(
             ["model", "lite-model", "working-memory", "model-message"],
@@ -101,8 +105,10 @@ class LiteModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            stream: false,
             reasoning_effort: "low",
         });
+        validateModelResponse(response);
 
         logger.info(
             ["model", "lite-model", "long-term-memory", "extend-search", "model-message"],
@@ -154,9 +160,11 @@ class LiteModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            stream: false,
             reasoning_effort: "low",
             temperature: this.temperature,
         });
+        validateModelResponse(response);
 
         logger.info(
             ["model", "lite-model", "long-term-memory", "extend-full-search", "model-message"],
@@ -218,9 +226,11 @@ class LiteModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            stream: false,
             reasoning_effort: "medium",
             temperature: this.temperature,
         });
+        validateModelResponse(response);
         logger.info(
             ["model", "lite-model", "long-term-memory", "add", "model-message"],
             response.choices[0].message,
@@ -252,9 +262,11 @@ class LiteModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            stream: false,
             reasoning_effort: "high",
             temperature: this.temperature,
         });
+        validateModelResponse(response);
         logger.info(
             ["model", "lite-model", "long-term-memory", "dreaming", "model-message"],
             response.choices[0].message,

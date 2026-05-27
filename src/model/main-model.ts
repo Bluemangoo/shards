@@ -16,6 +16,8 @@ import { Receive } from "node-napcat-ts/dist/Structs";
 import { sticker } from "../data/database/sticker.ts";
 import PROMPTS from "../data/config/prompts.ts";
 import logger from "../log/logger.ts";
+import { loginInfo } from "../napcat/client.ts";
+import { validateModelResponse } from "../utils/model.ts";
 
 class MainModel {
     client: OpenAI;
@@ -137,6 +139,7 @@ class MainModel {
         if (windowContext) {
             hints.push({ type: "hint", remark: "当前聊天窗口", windowContext });
         }
+        hints.push({type: "hint", remark:"当前登录账号", data: loginInfo.data})
         const date = new Date();
         hints.push({
             type: "hint",
@@ -216,10 +219,12 @@ class MainModel {
                 response = await this.client.chat.completions.create({
                     model: this.model,
                     messages: model_messages,
+                    stream: false,
                     tools: napcatToolDefined as any,
                     tool_choice: "auto",
                     reasoning_effort: "medium",
                 });
+                validateModelResponse(response);
             } catch (e) {
                 if (firstCalled) {
                     throw e;

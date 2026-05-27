@@ -31,7 +31,8 @@ class Sticker {
         }
         logger.info(
             ["model", "image-model", "parse-image"],
-            "Creating sticker description for" + fileId,
+            "Creating sticker description for",
+            fileId,
         );
         let fileName;
         try {

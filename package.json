@@ -4,10 +4,9 @@
     "description": "",
     "type": "module",
     "scripts": {
-        "build": "tsc",
         "prepare": "ts-patch install",
-        "start": "node --loader ts-node/esm --no-warnings ./src/entry.ts",
-        "inject": "node --loader ts-node/esm --no-warnings ./src/inject.ts"
+        "start": "node --enable-source-maps --loader ts-node/esm --no-warnings ./src/entry.ts",
+        "inject": "node --enable-source-maps --loader ts-node/esm --no-warnings ./src/inject.ts"
     },
     "devDependencies": {
         "@types/mime-types": "^3.0.1",

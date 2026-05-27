@@ -3,6 +3,7 @@ import CONFIG from "../data/config/config.ts";
 import { LlmJson } from "@typia/utils";
 import PROMPTS from "../data/config/prompts.ts";
 import logger from "../log/logger.ts";
+import { validateModelResponse } from "../utils/model.ts";
 
 type ImageParseResult = {
     summary: string;
@@ -48,7 +49,9 @@ class ImageModel {
         const response = await this.client.chat.completions.create({
             model: this.model,
             messages: model_messages,
+            stream: false,
         });
+        validateModelResponse(response);
 
         logger.info(
             ["model", "image-model", "parse-image", "model-message"],
