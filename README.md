@@ -67,9 +67,11 @@ create table long_term_memory
 
 ~~我用的napcat被我爆改过，injectPttText自己扬掉。~~ PR合并了请使用26.5.13以后的napcat构建。
 
-主模型支持语音的去把tools里面语音相关的一个工具一个类取消注释了。
+SUPPORT_IMAGE和SUPPORT_AUDIO默认值是true，主模型不支持的时候要改成false。
 
 觉得自己模型快的飞起的可以把LongTermMemory的fullSearch改回用extendFullMemorySearch的。
+
+控制台敲help看命令，具体逻辑看`main-loop/console-loop.ts`。
 
 ### 外部日志查看器
 

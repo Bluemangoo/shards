@@ -5,8 +5,14 @@ export function requireNonNull<T>(o: T | undefined | null, e?: string): T {
     return o;
 }
 
+export function stringToBoolean(s?: string, defaultValue = false) {
+    if (s == null) return defaultValue;
+    return ["y", "yes", "true", "t", "1"].includes(s.toLowerCase());
+}
+
 export function deepContains(sup: any, sub: any): boolean {
     if (sup === sub) return true;
+    if (sub === undefined) return true; // undefined is considered contained in any object
 
     if (typeof sub !== "object" || sub === null || typeof sup !== "object" || sup === null) {
         return false;

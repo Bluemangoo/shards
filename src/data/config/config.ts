@@ -1,4 +1,4 @@
-import { requireNonNull } from "../../utils/obj.ts";
+import { requireNonNull, stringToBoolean } from "../../utils/obj.ts";
 import init from "../../init.ts";
 
 function generateConfig() {
@@ -13,6 +13,8 @@ function generateConfig() {
             baseUrl: requireNonNull(process.env.OPENAI_URL),
             apiKey: requireNonNull(process.env.OPENAI_KEY),
             model: requireNonNull(process.env.MODEL),
+            image: stringToBoolean(process.env.SUPPORT_IMAGE, true),
+            audio: stringToBoolean(process.env.SUPPORT_AUDIO, true),
         },
         liteModel: {
             baseUrl: requireNonNull(process.env.LITE_OPENAI_URL || process.env.OPENAI_URL),

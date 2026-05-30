@@ -27,6 +27,7 @@ import { fetchUrlAsMarkdown } from "../utils/browse.ts";
 import axios from "axios";
 import CONFIG from "../data/config/config.ts";
 import logger from "../log/logger.ts";
+import { ChatWindow } from "../utils/chat-window.ts";
 
 export const napcatTools = {
     /**
@@ -87,8 +88,12 @@ export const napcatTools = {
             }
 
             const message = await napcat.get_msg({ message_id: result.message_id });
-
-            await storeEvent(injectRawMsg(message, injectInfo));
+            const event = injectRawMsg(message, injectInfo);
+            await storeEvent(event);
+            const messageWindow = ChatWindow.fromEvent(event);
+            if (p.context.window != messageWindow) {
+                history.addPretendProcessedEvent(messageWindow, [event]);
+            }
             return result;
         },
         "发送消息",
@@ -98,13 +103,14 @@ export const napcatTools = {
     poke: toolHelper(
         async (
             p: {
-                user_id: number;
+                user_id?: number;
                 group_id?: number;
                 poke_type?: "private" | "group";
             } & ToolArguments,
         ) => {
             let type = p.poke_type;
             let groupId = p.group_id;
+            let userId = p.user_id;
 
             if (type == null || (type === "group" && groupId == null)) {
                 if (p.context.window) {
@@ -112,16 +118,48 @@ export const napcatTools = {
                         groupId = Number(p.context.window.id);
                         type = "group";
                     } else if (p.context.window.type === "private") {
+                        userId = userId || Number(p.context.window.id);
                         type = "private";
                     }
                 }
             }
 
+            if (userId == null) {
+                return "需要提供user_id";
+            }
+
             if (type === "group" && groupId != null) {
-                return await napcat.group_poke({ group_id: groupId, user_id: p.user_id });
+                if (p.group_id != null && String(p.group_id) != p.context.window?.id) {
+                    // 不在当前对话窗口
+                    expectedEvents.add({
+                        ends: Date.now() + 30 * 1000,
+                        matches: {
+                            post_type: "notice",
+                            sub_type: "poke",
+                            groupId,
+                            sender_id: loginInfo.data!.user_id,
+                            target_id: userId,
+                        },
+                        addToHistory: true, // 主要目的
+                    });
+                }
+                return await napcat.group_poke({ group_id: groupId, user_id: userId });
             } else {
                 // 如果是 private 或者没找到合适的类型，默认使用好友戳一戳
-                return await napcat.friend_poke({ user_id: p.user_id });
+                if (p.user_id != null && String(p.user_id) != p.context.window?.id) {
+                    // 不在当前对话窗口
+                    expectedEvents.add({
+                        ends: Date.now() + 30 * 1000,
+                        matches: {
+                            post_type: "notice",
+                            sub_type: "poke",
+                            sender_id: loginInfo.data!.user_id,
+                            target_id: userId,
+                        },
+                        addToHistory: true, // 主要目的
+                    });
+                }
+                return await napcat.friend_poke({ user_id: userId });
             }
         },
         "戳一戳",
@@ -278,13 +316,21 @@ export const napcatTools = {
             } & ToolArguments,
         ) => {
             const selfInfo = loginInfo.data!;
-            let user;
+            let user: Partial<
+                Awaited<ReturnType<typeof cached_get_stranger_info>> & { avatar: string }
+            >;
             if (p.user_id == selfInfo.user_id) {
                 user = selfInfo;
             } else {
                 user = await cached_get_stranger_info(p.user_id);
+                user.richTime = undefined;
+                user.richBuffer = undefined;
+                user.musicInfo = undefined;
+                user.extOnlineBusinessInfo = undefined;
+                user.extBuffer = undefined;
             }
-            (user as any).avatar = `https://q1.qlogo.cn/g?b=qq&nk=${p.user_id}&s=640`;
+
+            user.avatar = `https://q1.qlogo.cn/g?b=qq&nk=${p.user_id}&s=640`;
             return user;
         },
         "获取用户信息",
@@ -402,20 +448,22 @@ export const napcatTools = {
         },
         "读取图片",
         "根据图片 URL 读取图片内容，返回图片。有file_id(消息data中的file字段)可以一起传进来，保险一点。",
+        () => !CONFIG.mainModel.image,
     ),
 
-    // read_record: toolHelper(
-    //     async (
-    //         p: {
-    //             file_id: string;
-    //         } & ToolArguments,
-    //     ) => {
-    //         const f = await napcat.get_record({ file: p.file_id, out_format: "mp3" });
-    //         return new Mp3Output((<any>f).base64 /* it exists */);
-    //     },
-    //     "读取语音",
-    //     "根据语音文件 ID 读取语音内容。",
-    // ),
+    read_record: toolHelper(
+        async (
+            p: {
+                file_id: string;
+            } & ToolArguments,
+        ) => {
+            const f = await napcat.get_record({ file: p.file_id, out_format: "mp3" });
+            return new Mp3Output((<any>f).base64 /* it exists */);
+        },
+        "读取语音",
+        "根据语音文件 ID 读取语音内容。",
+        () => !CONFIG.mainModel.audio,
+    ),
 
     download_file: toolHelper(
         async (
@@ -604,18 +652,37 @@ export const napcatTools = {
         "收藏表情包到表情包列表，之后可以发送",
     ),
 
-    get_sticker: toolHelper(async (p: { id: number } & ToolArguments) => {
-        const s = await sticker.getSticker(p.id);
-        if (!s) {
-            return "表情包不存在";
-        }
-        return {
-            id: s.id,
-            summary: s.description_data.summary,
-            description: s.description_data.description,
-            tags: s.description_data.tags,
-        };
-    }),
+    get_sticker: toolHelper(
+        async (p: { id: number } & ToolArguments) => {
+            const s = await sticker.getSticker(p.id);
+            if (!s) {
+                return "表情包不存在";
+            }
+            return {
+                id: s.id,
+                summary: s.description_data.summary,
+                description: s.description_data.description,
+                tags: s.description_data.tags,
+            };
+        },
+        "获取表情包",
+        "获取表情包描述详情",
+    ),
+
+    view_sticker: toolHelper(
+        async (p: { id: number } & ToolArguments) => {
+            const s = await sticker.getSticker(p.id);
+            if (!s) {
+                return "表情包不存在";
+            }
+            return new ImageOutput(
+                fileToBase64Url(process.cwd() + "/data/stickers/" + s.file_name),
+            );
+        },
+        "查看表情包",
+        "查看表情包图片",
+        () => !CONFIG.mainModel.image,
+    ),
 
     send_sticker: toolHelper(
         async (
@@ -767,9 +834,16 @@ export const napcatMcpApplication = (() => {
 })();
 
 export const napcatToolDefined = (() =>
-    napcatMcpApplication.functions
-        .map((f) => ({ type: "function", function: f }))
-        .filter((f) => !napcatTools[f.function.name as keyof typeof napcatTools].disabled))();
+    napcatMcpApplication.functions.map((f) => ({ type: "function", function: f })))();
+export function napcatToolDefinedFiltered() {
+    return napcatToolDefined.filter((f) => {
+        const d = napcatTools[f.function.name as keyof typeof napcatTools].disabled;
+        if (typeof d == "function") {
+            return !d();
+        }
+        return !d;
+    });
+}
 
 export abstract class InjectOutput {
     abstract toolOutputPlaceholder(): string;
@@ -795,25 +869,25 @@ export class ImageOutput extends InjectOutput {
     }
 }
 
-// export class Mp3Output extends InjectOutput {
-//     constructor(public audio: string) {
-//         super();
-//     }
-//
-//     toolOutputPlaceholder(): string {
-//         return "Record will be uploaded in the next user message";
-//     }
-//
-//     output() {
-//         return {
-//             type: "input_audio",
-//             input_audio: {
-//                 data: this.audio,
-//                 format: "mp3",
-//             },
-//         };
-//     }
-// }
+export class Mp3Output extends InjectOutput {
+    constructor(public audio: string) {
+        super();
+    }
+
+    toolOutputPlaceholder(): string {
+        return "Record will be uploaded in the next user message";
+    }
+
+    output() {
+        return {
+            type: "input_audio",
+            input_audio: {
+                data: this.audio,
+                format: "mp3",
+            },
+        };
+    }
+}
 
 export class FileOutput extends InjectOutput {
     constructor(

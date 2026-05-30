@@ -18,6 +18,7 @@ export async function storeEvent(event: HintInjectedEvent) {
 export type ExpectedEvent = {
     ends: number;
     matches: Record<string, any>;
+    addToHistory?: boolean;
 };
 export const expectedEvents = new Set<ExpectedEvent>();
 
@@ -30,6 +31,9 @@ function shouldIgnore(event: HintInjectedEvent) {
         }
         if (deepContains(event, e)) {
             expectedEvents.delete(e);
+            if (e.addToHistory) {
+                history.addPretendProcessedEvent(ChatWindow.fromEvent(event), [event]);
+            }
             return true;
         }
     }

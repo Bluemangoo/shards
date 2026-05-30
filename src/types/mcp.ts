@@ -11,12 +11,12 @@ export function toolHelper<T extends ToolArguments, R>(
     fn: (p: T) => R,
     title?: string,
     description?: string,
-    disabled = false,
+    disabled: boolean | (() => boolean) = false,
 ) {
     return {
         fn,
         title,
         description,
-        disabled
+        disabled,
     };
 }

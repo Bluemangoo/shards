@@ -5,7 +5,7 @@ import { HintInjectedEvent } from "../types/event.ts";
 import {
     InjectOutput,
     napcatMcpApplication,
-    napcatToolDefined,
+    napcatToolDefinedFiltered,
     napcatTools,
 } from "../napcat/tools.ts";
 import { fullStripEvent, getModelHint } from "../napcat/pre-stringify-event.ts";
@@ -135,11 +135,11 @@ class MainModel {
                     lastAccessed: date.toLocaleDateString() + " " + date.toLocaleTimeString(),
                 };
             });
-        const hints: any[] = [{ type: "hint", remark: "当前工作记忆", workingMemory: wm }];
+        const hints: Record<string, any>[] = [{ type: "hint", remark: "当前工作记忆", workingMemory: wm }];
         if (windowContext) {
             hints.push({ type: "hint", remark: "当前聊天窗口", windowContext });
         }
-        hints.push({type: "hint", remark:"当前登录账号", data: loginInfo.data})
+        hints.push({ type: "hint", remark: "当前登录账号", data: loginInfo.data });
         const date = new Date();
         hints.push({
             type: "hint",
@@ -169,7 +169,7 @@ class MainModel {
                 if (model_history != null) {
                     model_messages.push({
                         role: "assistant",
-                        content: JSON.stringify(model_history),
+                        content: model_history.trace.join("\n"),
                     });
                 }
                 history_messages = [];
@@ -191,7 +191,7 @@ class MainModel {
         if (model_history != null) {
             model_messages.push({
                 role: "assistant",
-                content: JSON.stringify(model_history),
+                content: model_history.trace.join("\n"),
             });
         }
 
@@ -220,7 +220,7 @@ class MainModel {
                     model: this.model,
                     messages: model_messages,
                     stream: false,
-                    tools: napcatToolDefined as any,
+                    tools: napcatToolDefinedFiltered() as any, // I know what I'm doing
                     tool_choice: "auto",
                     reasoning_effort: "medium",
                 });
@@ -266,7 +266,10 @@ class MainModel {
                 trace.push(`Tool call: ${function_name} with args: ${function_args}`);
                 logger.info(
                     ["model", "main-model", "tool-call", "lifecycle"],
-                    `Tool call: ${function_name} with args: ${function_args}`,
+                    "Tool call:",
+                    function_name,
+                    "with args:",
+                    function_args,
                 );
 
                 let to_upload: any = null;
@@ -313,10 +316,10 @@ class MainModel {
                     tool_result = `error: ${str}`;
                 }
 
-                trace.push(`Tool result: ${String(tool_result).slice(0, 1024)}`);
+                trace.push(`Tool result: ${String(tool_result)}`);
                 logger.info(
                     ["model", "main-model", "tool-call", "lifecycle"],
-                    `Tool result: ${String(tool_result).slice(0, 256)}`,
+                    `Tool result: ${String(tool_result).slice(0, 1024)}`,
                 );
 
                 // 反馈工具结果

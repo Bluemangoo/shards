@@ -82,10 +82,54 @@ function loadLogs(targetZeroCount = 501) {
     }
 }
 loadLogs();
-const logStream = fs.createWriteStream(logFilePath, { flags: "a" });
+let logStream = fs.createWriteStream(logFilePath, { flags: "a" });
 logStream.on("error", (err) => {
     console.error("日志文件流发生错误:", err);
 });
+let isCompressing = false;
+let logBuffer: Line[] = [];
+export async function compressLogs() {
+    if (isCompressing) return;
+    isCompressing = true;
+
+    try {
+        const frozen = pool.frozen();
+        const tmpFilePath = `${logFilePath}.tmp`;
+
+        const data =
+            frozen.length > 0 ? frozen.map((line) => JSON.stringify(line)).join("\0") + "\0" : "";
+
+        await fs.promises.writeFile(tmpFilePath, data, "utf8");
+        const oldStream = logStream;
+        oldStream.end();
+        await new Promise<void>((resolve) => {
+            if (oldStream.destroyed) {
+                return resolve();
+            }
+            oldStream.once("close", resolve);
+        });
+        await fs.promises.rename(tmpFilePath, logFilePath);
+        logStream = fs.createWriteStream(logFilePath, { flags: "a" });
+        logStream.on("error", (err) => {
+            console.error("日志文件流发生错误:", err);
+        });
+        if (logBuffer.length > 0) {
+            const bufferData = logBuffer.map((line) => JSON.stringify(line)).join("\0") + "\0";
+            logStream.write(bufferData);
+            logBuffer = [];
+        }
+        console.log("压缩完成。");
+    } catch (err) {
+        console.error("日志压缩失败:", err);
+        if (logBuffer.length > 0) {
+            const bufferData = logBuffer.map((line) => JSON.stringify(line)).join("\0") + "\0";
+            logStream.write(bufferData);
+            logBuffer = [];
+        }
+    } finally {
+        isCompressing = false;
+    }
+}
 export const wsLoggerHandler: Logger.Processor = async (level, labels, args, stringify) => {
     const line = {
         level,

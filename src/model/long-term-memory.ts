@@ -141,7 +141,7 @@ class LongTermMemory {
                 }
             }
         };
-        const tasks: (() => Promise<any>)[] = [];
+        const tasks: (() => Promise<void>)[] = [];
 
         let currentTrace: ChatNode | null = null;
         for (const event of history) {
