@@ -21,6 +21,16 @@ import { getFace } from "../utils/qface.ts";
 import { removeLeading } from "../utils/string.ts";
 import logger from "../log/logger.ts";
 
+export const MESSAGE_INJECT_TAGS = {
+    FACE: Symbol("isFaceProcessed"),
+    JSON: Symbol("isJsonProcessed"),
+    AT: Symbol("isAtProcessed"),
+    PTT: Symbol("isPttProcessed"),
+} as const;
+export type WithInjectTags = Partial<
+    Record<(typeof MESSAGE_INJECT_TAGS)[keyof typeof MESSAGE_INJECT_TAGS], boolean>
+>;
+
 export function stripGroupInfo(groupInfo: NapcatResult["get_group_info"]) {
     return {
         group_id: groupInfo.group_id,
@@ -76,7 +86,7 @@ export async function stripPoke(
         sub_type: event.sub_type,
         group_id: groupId,
         target_id: event.target_id,
-        sender_id: event.sender_id,
+        sender_id: "sender_id" in event ? event.sender_id : undefined,
         stringified_message,
     };
 }
@@ -108,6 +118,48 @@ export async function stripBan(
     };
 }
 
+export async function stripGroupIncreaseDecrease(
+    event: HintInjectedEventOf<"notice.group_increase" | "notice.group_decrease">,
+) {
+    const group_info = await cached_get_group_info(event.group_id);
+    const name = await cached_get_stranger_display_name(event.user_id);
+    let stringified_message;
+    switch (event.sub_type) {
+        case "approve":
+        case "invite":
+            stringified_message = `${name} 加入了群聊`;
+            break;
+        case "kick":
+        case "kick_me":
+            stringified_message = `${name} 被踢出了群聊`;
+            break;
+        case "leave":
+            stringified_message = `${name} 退出了群聊`;
+            break;
+        case "disband":
+            stringified_message = undefined;
+    }
+    return {
+        ...event,
+        group_info,
+        stringified_message,
+    };
+}
+
+export async function stripTitleChange(event: HintInjectedEventOf<"notice.notify.title">) {
+    const group_info = await cached_get_group_info(event.group_id);
+    const userIsSelf = event.user_id == event.self_id;
+    const userName = userIsSelf
+        ? "你"
+        : await cached_get_group_member_display_name(event.user_id, event.group_id);
+    const stringified_message = `恭喜 ${userName} 获得群主授予的 ${event.title} 头衔`;
+    return {
+        ...event,
+        group_info,
+        stringified_message,
+    };
+}
+
 export async function stripFullPrivateMessage(
     event: HintInjectedEventOf<"message.private.friend" | "message.private.group">,
 ) {
@@ -121,7 +173,6 @@ export async function stripFullPrivateMessage(
         time: event.time,
         sender: displayName,
         message_id: event.message_id,
-        raw_message: event.raw_message,
         message: event.message,
         hint: event.hint,
     };
@@ -149,7 +200,6 @@ export async function stripFullGroupMessage(event: HintInjectedEventOf<"message.
         time: event.time,
         sender: sender,
         message_id: event.message_id,
-        raw_message: event.raw_message,
         message: event.message,
         hint: event.hint,
     };
@@ -172,17 +222,6 @@ export async function getFriendAddRequestModelHint(event: HintInjectedEventOf<"r
     return {
         type: "私聊",
         ...user,
-    };
-}
-
-export async function getGroupMessageModelHint(
-    event: HintInjectedEventOf<
-        "message.group.normal" | "notice.group_ban.ban" | "notice.group_ban.lift_ban"
-    >,
-) {
-    return {
-        type: "群聊",
-        ...stripGroupInfo(await cached_get_group_info(event.group_id)),
     };
 }
 
@@ -261,9 +300,7 @@ export async function getPrivatePokeModelHint(event: NapcatEvent) {
     };
 }
 
-export async function getGroupPokeModelHint(
-    event: HintInjectedEventOf<"notice.notify.poke.group">,
-) {
+export async function getGroupModelHint(event: { group_id: number }) {
     return {
         type: "群聊",
         ...stripGroupInfo(await cached_get_group_info(event.group_id)),
@@ -271,6 +308,9 @@ export async function getGroupPokeModelHint(
 }
 
 export async function injectPttText(e: HintInjectedMessageEvent) {
+    if (e[MESSAGE_INJECT_TAGS.PTT]) {
+        return;
+    }
     for (const seg of e.message) {
         if (seg.type == "record") {
             try {
@@ -280,9 +320,13 @@ export async function injectPttText(e: HintInjectedMessageEvent) {
             }
         }
     }
+    e[MESSAGE_INJECT_TAGS.PTT] = true;
 }
 
 export async function injectJson(e: HintInjectedMessageEvent) {
+    if (e[MESSAGE_INJECT_TAGS.JSON]) {
+        return;
+    }
     for (const seg of e.message) {
         if (seg.type == "json") {
             try {
@@ -290,23 +334,38 @@ export async function injectJson(e: HintInjectedMessageEvent) {
             } catch {}
         }
     }
+    e[MESSAGE_INJECT_TAGS.JSON] = true;
 }
 
-export async function stripeFace(event: HintInjectedMessageEvent) {
+export async function injectFace(event: HintInjectedMessageEvent) {
+    if (event[MESSAGE_INJECT_TAGS.FACE]) {
+        return;
+    }
     for (const seg of event.message) {
         if (seg.type == "face") {
-            const face = getFace(seg.data.id);
-            if (face) {
+            if (seg.data.raw?.faceText) {
                 (seg.data as any) = {
                     face_id: seg.data.id,
-                    describe: removeLeading(face.describe, "/"),
+                    describe: removeLeading(seg.data.raw.faceText, "/"),
                 };
+            } else {
+                const face = getFace(seg.data.id);
+                if (face) {
+                    (seg.data as any) = {
+                        face_id: seg.data.id,
+                        describe: removeLeading(face.describe, "/"),
+                    };
+                }
             }
         }
     }
+    event[MESSAGE_INJECT_TAGS.FACE] = true;
 }
 
 export async function injectAt(e: HintInjectedMessageEvent) {
+    if (e[MESSAGE_INJECT_TAGS.AT]) {
+        return;
+    }
     const event = e as GroupMessage;
     for (const seg of event.message) {
         if (seg.type == "at") {
@@ -354,6 +413,7 @@ export async function injectAt(e: HintInjectedMessageEvent) {
             }
         }
     }
+    e[MESSAGE_INJECT_TAGS.AT] = true;
 }
 
 export async function preStringifyEvent(event: HintInjectedEvent) {
@@ -362,7 +422,7 @@ export async function preStringifyEvent(event: HintInjectedEvent) {
         if (event.post_type == "message") {
             await injectPttText(event);
             await injectJson(event);
-            await stripeFace(event);
+            await injectFace(event);
         }
         switch (event.hint) {
             case EVENT_HINT_MAP["notice.notify.poke.friend"]:
@@ -372,6 +432,13 @@ export async function preStringifyEvent(event: HintInjectedEvent) {
             case EVENT_HINT_MAP["notice.group_ban.ban"]:
             case EVENT_HINT_MAP["notice.group_ban.lift_ban"]:
                 postEvent = await stripBan(event);
+                break;
+            case EVENT_HINT_MAP["notice.notify.title"]:
+                postEvent = await stripTitleChange(event);
+                break;
+            case EVENT_HINT_MAP["notice.group_increase"]:
+            case EVENT_HINT_MAP["notice.group_decrease"]:
+                postEvent = await stripGroupIncreaseDecrease(event);
                 break;
             case EVENT_HINT_MAP["request.friend"]:
                 postEvent = await stripFriendAddRequest(event);
@@ -418,14 +485,16 @@ export async function getModelHint<T extends HintInjectedEvent>(event: T) {
             case EVENT_HINT_MAP["message.group.normal"]:
             case EVENT_HINT_MAP["notice.group_ban.ban"]:
             case EVENT_HINT_MAP["notice.group_ban.lift_ban"]:
-                return await getGroupMessageModelHint(event);
+            case EVENT_HINT_MAP["notice.notify.poke.group"]:
+            case EVENT_HINT_MAP["notice.group_increase"]:
+            case EVENT_HINT_MAP["notice.group_decrease"]:
+            case EVENT_HINT_MAP["notice.notify.title"]:
+                return await getGroupModelHint(event);
             case EVENT_HINT_MAP["message.private.friend"]:
             case EVENT_HINT_MAP["message.private.group"]:
                 return await getPrivateMessageModelHint(event);
             case EVENT_HINT_MAP["notice.notify.poke.friend"]:
                 return await getPrivatePokeModelHint(event);
-            case EVENT_HINT_MAP["notice.notify.poke.group"]:
-                return await getGroupPokeModelHint(event);
             case EVENT_HINT_MAP["request.friend"]:
                 return await getFriendAddRequestModelHint(event);
             default:

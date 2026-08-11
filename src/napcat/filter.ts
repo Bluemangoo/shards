@@ -13,6 +13,9 @@ export const EVENT_HINT_MAP = {
     "notice.group_ban.ban": "group_ban",
     "notice.group_ban.lift_ban": "group_lift_ban",
     "request.friend": "friend_add_request",
+    "notice.group_increase": "group_member_increase",
+    "notice.group_decrease": "group_member_decrease",
+    "notice.notify.title": "title_change"
 } as const satisfies Partial<Record<EventKey, string>>;
 
 export function injectRawMsg(event: NapcatResult["get_msg"], extra?: Record<string, any>) {
@@ -56,7 +59,7 @@ export function registerNapcat(napcat: NCWebsocket) {
         push(e as any, EVENT_HINT_MAP["message.private.group"]);
     });
     napcat.on("notice.notify.poke.friend", (e) => {
-        push(e as any, EVENT_HINT_MAP["notice.notify.poke.friend"]);
+        push(e, EVENT_HINT_MAP["notice.notify.poke.friend"]);
     });
     napcat.on("notice.notify.poke.group", (e) => {
         push(e as any, EVENT_HINT_MAP["notice.notify.poke.group"]);
@@ -70,4 +73,13 @@ export function registerNapcat(napcat: NCWebsocket) {
     napcat.on("request.friend", (e) => {
         push(e, EVENT_HINT_MAP["request.friend"]);
     });
+    napcat.on("notice.group_increase", (e)=>{
+        push(e, EVENT_HINT_MAP["notice.group_increase"]);
+    })
+    napcat.on("notice.group_decrease", (e) => {
+        push(e, EVENT_HINT_MAP["notice.group_decrease"]);
+    });
+    napcat.on("notice.notify.title", (e)=>{
+        push(e, EVENT_HINT_MAP["notice.notify.title"]);
+    })
 }

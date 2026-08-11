@@ -8,6 +8,7 @@ import { loginInfo, napcat } from "../napcat/client.ts";
 import { eventStack } from "../main.ts";
 import { reloadPrompt } from "../data/config/prompts.ts";
 import { compressLogs } from "../log/ws.ts";
+import { isSleeping } from "./life-cycle.ts";
 
 export function consoleLoop() {
     const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -17,8 +18,12 @@ export function consoleLoop() {
         reload,
         relogin,
         next,
+        drop,
+        sleep,
+        wakeup,
         "compress logs": compressLogs,
         config,
+        status,
     };
 
     rl.on("line", async (line) => {
@@ -44,6 +49,7 @@ async function reload() {
     mainModel.model = CONFIG.mainModel.model;
     mainModel.client.baseURL = CONFIG.mainModel.baseUrl;
     mainModel.client.apiKey = CONFIG.mainModel.apiKey;
+    mainModel.reasoningEffort = CONFIG.mainModel.reasoningEffort;
     liteModel.model = CONFIG.liteModel.model;
     liteModel.client.baseURL = CONFIG.liteModel.baseUrl;
     liteModel.client.apiKey = CONFIG.liteModel.apiKey;
@@ -70,6 +76,23 @@ async function relogin() {
 async function next() {
     eventStack.next();
 }
+async function drop() {
+    eventStack.clear();
+}
 async function config() {
     console.log(CONFIG);
+}
+async function sleep() {
+    isSleeping.v = true;
+}
+async function wakeup() {
+    isSleeping.v = false;
+}
+async function status() {
+    console.log(`Sleeping: ${isSleeping.v}`);
+    const eventStackStatus = eventStack.status();
+    console.log(`Event stack: (${eventStackStatus.size})`);
+    for (const [window, stack] of eventStackStatus) {
+        console.log(`- ${window?.type} ${window?.id} (${stack.length})`);
+    }
 }

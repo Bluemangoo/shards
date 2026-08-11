@@ -21,14 +21,13 @@ import { validateModelResponse } from "../utils/model.ts";
 
 class MainModel {
     client: OpenAI;
-    model: string;
 
     constructor(
         baseUrl: string = CONFIG.mainModel.baseUrl,
         apiKey: string = CONFIG.mainModel.apiKey,
-        model: string = CONFIG.mainModel.model,
+        public model: string = CONFIG.mainModel.model,
+        public reasoningEffort: string = CONFIG.mainModel.reasoningEffort,
     ) {
-        this.model = model;
         this.client = new OpenAI({
             baseURL: baseUrl,
             apiKey: apiKey,
@@ -55,7 +54,7 @@ class MainModel {
         const model_messages: any[] = [
             { role: "system", content: PROMPTS.dev },
             { role: "system", content: PROMPTS.sys },
-            ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
+            // ...PROMPTS.vibe.map((s) => ({ role: "assistant", content: s })),
         ];
 
         const windowContext = await getModelHint(messages[0]);
@@ -74,17 +73,18 @@ class MainModel {
                         searchExtra.push((<any>windowContext).user.nickname);
                     }
                     const memory = await longTermMemory.fullSearch(messages, history, searchExtra);
+
                     logger.info(
                         ["model", "life-cycle", "long-term-memory"],
                         "Found",
-                        memory.length,
+                        memory.data.length,
                         "relevant long-term memory items",
                     );
                     model_messages.push({
                         role: "system",
                         content: JSON.stringify({
                             type: "matched_memory",
-                            memory: memory.map((r) => ({
+                            memory: memory.data.map((r) => ({
                                 content: r.content,
                                 created_at:
                                     r.created_at.toLocaleDateString() +
@@ -93,10 +93,13 @@ class MainModel {
                             })),
                         }),
                     });
+                    if (memory.error && memory.error.length > 0) {
+                        throw memory.error;
+                    }
                 } catch (e) {
                     logger.error(
                         ["model", "life-cycle", "long-term-memory"],
-                        "Failed to search memory, skipped:",
+                        "Failed to search memory:",
                         e,
                     );
                 }
@@ -135,7 +138,9 @@ class MainModel {
                     lastAccessed: date.toLocaleDateString() + " " + date.toLocaleTimeString(),
                 };
             });
-        const hints: Record<string, any>[] = [{ type: "hint", remark: "当前工作记忆", workingMemory: wm }];
+        const hints: Record<string, any>[] = [
+            { type: "hint", remark: "当前工作记忆", workingMemory: wm },
+        ];
         if (windowContext) {
             hints.push({ type: "hint", remark: "当前聊天窗口", windowContext });
         }
@@ -222,7 +227,7 @@ class MainModel {
                     stream: false,
                     tools: napcatToolDefinedFiltered() as any, // I know what I'm doing
                     tool_choice: "auto",
-                    reasoning_effort: "medium",
+                    reasoning_effort: this.reasoningEffort as OpenAI.ReasoningEffort,
                 });
                 validateModelResponse(response);
             } catch (e) {
@@ -347,13 +352,14 @@ const mainModel = new MainModel();
 export { mainModel };
 
 class StickerInjector {
+    static STICKER_SUB_TYPES = [1, 2, 7];
     map = new Map<string, Receive["image"]["data"][]>();
 
     addEvent(event: HintInjectedEvent) {
         if (event.post_type == "message") {
             for (const seg of event.message) {
                 if (seg.type == "image") {
-                    if (seg.data.summary == "[动画表情]") {
+                    if (StickerInjector.STICKER_SUB_TYPES.includes(<number>seg.data.sub_type)) {
                         let e = this.map.get(seg.data.file);
                         if (!e) {
                             this.map.set(seg.data.file, []);

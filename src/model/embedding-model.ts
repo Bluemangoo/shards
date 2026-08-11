@@ -28,7 +28,7 @@ class EmbeddingModel {
     createTask() {
         let batch = {
             input: [] as string[],
-            promise: null as Promise<OpenAI.Embeddings.Embedding[]> | null,
+            promise: null as Promise<(OpenAI.Embeddings.Embedding | Error)[]> | null,
         };
 
         const add = (i: string[]) => {
@@ -42,9 +42,38 @@ class EmbeddingModel {
                 if (!currentBatch.promise) {
                     batch = { input: [], promise: null };
 
-                    currentBatch.promise = this.createEmbedding(currentBatch.input).then(
-                        (res) => res.data,
-                    );
+                    const chunks: string[][] = [];
+                    let currentChunk: string[] = [];
+                    let currentLength = 0;
+
+                    for (const text of currentBatch.input) {
+                        if (currentLength + text.length > 8192 && currentChunk.length > 0) {
+                            chunks.push(currentChunk);
+                            currentChunk = [];
+                            currentLength = 0;
+                        }
+
+                        currentChunk.push(text);
+                        currentLength += text.length;
+                    }
+                    if (currentChunk.length > 0) {
+                        chunks.push(currentChunk);
+                    }
+
+                    currentBatch.promise = Promise.all(
+                        chunks.map((chunk) =>
+                            this.createEmbedding(chunk)
+                                .then((res) => res.data)
+                                .catch((err) => {
+                                    if (err instanceof Error) {
+                                        return new Array(chunk.length).fill(err) as Error[];
+                                    }
+                                    throw err;
+                                }),
+                        ),
+                    ).then((results) => {
+                        return results.flat();
+                    });
                 }
 
                 const data = await currentBatch.promise;

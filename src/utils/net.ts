@@ -62,7 +62,7 @@ export async function downloadFileWithAutoExt(
             fs.mkdirSync(outputDir, { recursive: true });
         }
 
-        const finalFileName = `${baseFileName}${ext}`;
+        let finalFileName = `${baseFileName}${ext}`;
         const destPath = path.join(outputDir, finalFileName);
 
         const writer = fs.createWriteStream(destPath);

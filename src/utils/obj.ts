@@ -30,3 +30,9 @@ export function deepContains(sup: any, sub: any): boolean {
         return deepContains(sup[key], sub[key]);
     });
 }
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends any ? Omit<T, K> : never;
+export function removeProperty<T extends object, K extends keyof T>(obj: T, prop: K): DistributiveOmit<T, K> {
+    delete obj[prop];
+    return obj as unknown as DistributiveOmit<T, K>;
+}

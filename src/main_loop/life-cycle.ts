@@ -21,6 +21,7 @@ export type ExpectedEvent = {
     addToHistory?: boolean;
 };
 export const expectedEvents = new Set<ExpectedEvent>();
+export const isSleeping = { v: false };
 
 function shouldIgnore(event: HintInjectedEvent) {
     const now = Date.now();
@@ -38,9 +39,12 @@ function shouldIgnore(event: HintInjectedEvent) {
         }
     }
     if (event.post_type == "notice" && event.sub_type == "poke") {
-        return event.sender_id == event.self_id;
+        if (event.sender_id == event.self_id) {
+            history.addPretendProcessedEvent(ChatWindow.fromEvent(event), [event]);
+            return true;
+        }
     }
-    return false;
+    return isSleeping.v;
 }
 
 function shouldInstantlyProcess(event: HintInjectedEvent) {
@@ -63,8 +67,7 @@ export async function onEvent(event: HintInjectedEvent) {
     await history.getWindowHistory(window); // try init
     await storeEvent(event);
     history.addEvent(event);
-    if (window && shouldIgnore(event)) {
-        history.addPretendProcessedEvent(window, [event]);
+    if (shouldIgnore(event)) {
         return;
     }
     eventStack.push(window, event, shouldInstantlyProcess(event));

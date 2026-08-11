@@ -13,6 +13,7 @@ function generateConfig() {
             baseUrl: requireNonNull(process.env.OPENAI_URL),
             apiKey: requireNonNull(process.env.OPENAI_KEY),
             model: requireNonNull(process.env.MODEL),
+            reasoningEffort: process.env.REASONINGEffort || "xhigh",
             image: stringToBoolean(process.env.SUPPORT_IMAGE, true),
             audio: stringToBoolean(process.env.SUPPORT_AUDIO, true),
         },

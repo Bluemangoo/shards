@@ -1,6 +1,7 @@
 export async function retry<T>(
     fn: () => Promise<T>,
     whitelist: (abstract new (...args: any) => any)[],
+    whitelistFn: ((e: unknown) => boolean)[],
     retries: number,
 ): Promise<T> {
     let lastError: any;
@@ -12,6 +13,15 @@ export async function retry<T>(
             for (const errType of whitelist) {
                 if (e instanceof errType) {
                     flag = true;
+                    break;
+                }
+            }
+            if (!flag) {
+                for (const fn of whitelistFn) {
+                    if (fn(e)) {
+                        flag = true;
+                        break;
+                    }
                 }
             }
             if (!flag) {

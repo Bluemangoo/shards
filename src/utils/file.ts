@@ -58,3 +58,29 @@ export function fileToBase64Url(filePath: string): string {
     const mimeType = mime.lookup(filePath) || "application/octet-stream";
     return `data:${mimeType};base64,${base64String}`;
 }
+
+export function resetExt(filePath: string): string {
+    const buffer = Buffer.alloc(4);
+    const fd = fs.openSync(filePath, "r");
+    fs.readSync(fd, buffer, 0, 4, 0);
+    fs.closeSync(fd);
+    let ext: string | undefined = undefined;
+    if (buffer.subarray(0, 3).toString("ascii") === "GIF") {
+        ext = ".gif";
+    }
+    if (buffer.subarray(0, 4).toString("hex") === "89504e47" /*0x89+PNG*/) {
+        ext = ".png";
+    }
+    if (buffer.subarray(0, 3).toString("hex") === "ffd8ff") {
+        ext = ".jpg";
+    }
+    if (ext == undefined || filePath.endsWith(ext)) {
+        return filePath;
+    }
+
+    const parsed = path.parse(filePath);
+    const finalFilePath = path.join(parsed.dir, parsed.name + ext);
+    fs.renameSync(filePath, finalFilePath);
+
+    return finalFilePath;
+}

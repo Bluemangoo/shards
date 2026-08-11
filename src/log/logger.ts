@@ -14,6 +14,12 @@ export namespace Logger {
                 this.loggers.get(level)!.push(processor);
             }
         }
+        unregister(levels: Level[], processor: Processor) {
+            for (const level of levels) {
+                const l = this.loggers.get(level)!;
+                l.splice(l.indexOf(processor), 1);
+            }
+        }
         protected stringify: Stringify = (args: any[]) => {
             const rendered: string[] = [];
             for (const arg of args) {

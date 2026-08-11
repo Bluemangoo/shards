@@ -97,7 +97,7 @@ export const napcatTools = {
             return result;
         },
         "发送消息",
-        '发送私聊或群聊消息如"message_type":"group","group_id":"123456","message":"hello"，在上下文中可不填类型和id，简单消息用字符串类型即可；如果上下文为群聊而向没加好友的群友发私聊消息会尝试发送临时会话的消息，这时发送成功不代表和对方加上好友了。',
+        '发送私聊或群聊消息如"message_type":"group","group_id":"123456","message":"hello"，在上下文中可不填类型和id，简单消息或包含cq码用字符串类型即可,结构化消息禁止自以为是地转义为string；如果上下文为群聊而向没加好友的群友发私聊消息会尝试发送临时会话的消息，这时发送成功不代表和对方加上好友了。',
     ),
 
     poke: toolHelper(
@@ -323,14 +323,24 @@ export const napcatTools = {
                 user = selfInfo;
             } else {
                 user = await cached_get_stranger_info(p.user_id);
-                user.richTime = undefined;
-                user.richBuffer = undefined;
-                user.musicInfo = undefined;
-                user.extOnlineBusinessInfo = undefined;
-                user.extBuffer = undefined;
+                user = {
+                    user_id: user.user_id,
+                    nickname: user.nickname,
+                    uid: user.uid,
+                    age: user.age,
+                    qid: user.qid,
+                    qqLevel: user.qqLevel,
+                    sex: user.sex,
+                    long_nick: user.long_nick,
+                    is_vip: user.is_vip,
+                    is_years_vip: user.is_years_vip,
+                    vip_level: user.vip_level,
+                    remark: user.remark,
+                    status: user.status,
+                };
             }
 
-            user.avatar = `https://q1.qlogo.cn/g?b=qq&nk=${p.user_id}&s=640`;
+            user.avatar = `https://q1.qlogo.cn/g?b=qq&nk=${p.user_id}&s=0`;
             return user;
         },
         "获取用户信息",
@@ -348,8 +358,31 @@ export const napcatTools = {
                 groupId = Number(p.context.window.id);
             }
             if (!groupId) throw new Error("Missing group_id");
-            const info = await cached_get_group_info(groupId);
-            (info as any).avatar = `https://p.qlogo.cn/gh/${groupId}/${groupId}/640/`;
+            let info: Partial<
+                Awaited<ReturnType<typeof napcat.get_group_info>> &
+                    Awaited<ReturnType<typeof napcat.get_group_info_ex>> & {
+                        groupOwnerId: {
+                            memberUin: string;
+                            memberUid: string;
+                        };
+                    } & {
+                        avatar: string;
+                    }
+            > = {
+                ...(await napcat.get_group_info({ group_id: groupId })),
+                ...(await napcat.get_group_info_ex({ group_id: groupId })),
+            };
+            info = {
+                group_id: info.group_id,
+                group_name: info.group_name,
+                member_count: info.member_count,
+                max_member_count: info.max_member_count,
+                group_all_shut: info.group_all_shut,
+                group_remark: info.group_remark,
+                groupOwnerId: info.extInfo?.groupOwnerId,
+            };
+
+            info.avatar = `https://p.qlogo.cn/gh/${groupId}/${groupId}/640/`;
             return info;
         },
         "获取群信息",
@@ -437,6 +470,10 @@ export const napcatTools = {
             } & ToolArguments,
         ) => {
             try {
+                if (p.file_id == "") {
+                    // 模型偶尔喜欢加
+                    p.file_id = undefined;
+                }
                 if (p.file_id != null) {
                     const f = await napcat.get_image({ file: p.file_id });
                     return new ImageOutput(fileToBase64Url(f.file));
@@ -447,7 +484,7 @@ export const napcatTools = {
             return new ImageOutput(await urlToDataUrl(p.image_url));
         },
         "读取图片",
-        "根据图片 URL 读取图片内容，返回图片。有file_id(消息data中的file字段)可以一起传进来，保险一点。",
+        "根据图片 URL 读取图片内容，返回图片。有file_id(消息data中的file字段，形如AABBCC.jpg)可以一起传进来，保险一点。",
         () => !CONFIG.mainModel.image,
     ),
 
@@ -533,10 +570,11 @@ export const napcatTools = {
     view_webpage: toolHelper(
         async (p: { url: string } & ToolArguments) => {
             const article = await fetchUrlAsMarkdown(p.url);
-            return new LongTextOutput(
-                JSON.stringify(article),
-                article.title + "\n" + article.excerpt,
-            );
+            const text = JSON.stringify(article);
+            if (text.length < 2500) {
+                return text;
+            }
+            return new LongTextOutput(text, article.title + "\n" + article.excerpt);
         },
         "浏览网页",
         "不支持交互式网页，仅获取网页正文内容，返回标题、简介和正文文本",
@@ -585,10 +623,10 @@ export const napcatTools = {
     ),
 
     search_memory: toolHelper(
-        async (p: { query: string[] } & ToolArguments) => {
+        async (p: { query: string[]; limit?: number } & ToolArguments) => {
             const r = await Promise.all(
                 p.query.map((q) => {
-                    return longTermMemory.search(q);
+                    return longTermMemory.search(q, p.limit);
                 }),
             );
             const unwrap: MemorySearchResult[] = [];
@@ -598,7 +636,7 @@ export const napcatTools = {
             return longTermMemory.sortResults(unwrap);
         },
         "在记忆中搜索",
-        "根据句子在记忆中搜索。一次搜索中每个查询一个完整句子。请不要吝啬使用。",
+        "根据句子在记忆中搜索。一次搜索中每个查询一个完整句子。请不要吝啬使用。limit默认为100，搜索对别人的记忆之类的需要更全面内容的情况可以考虑写300到500。",
     ),
 
     list_stickers: toolHelper(
@@ -614,7 +652,7 @@ export const napcatTools = {
         "列出已保存的全部表情包，返回的表情包不包含详细内容只有概括，需要更详细的内容请使用表情包id查询表情包详情",
     ),
 
-    save_stickers: toolHelper(
+    save_sticker: toolHelper(
         async (p: { file_id: string; url: string } & ToolArguments) => {
             const existing = await sticker.findStickersWithFileId(p.file_id);
             if (existing.length > 0) {

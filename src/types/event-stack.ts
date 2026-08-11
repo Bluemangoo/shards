@@ -45,6 +45,17 @@ export class EventStack<K, T> {
         this._condition.notifyAll();
     }
 
+    clear() {
+        this._stacks.clear();
+        this._lastPushTimes.clear();
+        this._forceFlush.clear();
+        this._condition.notifyAll();
+    }
+
+    status(){
+        return new Map(this._stacks);
+    }
+
     repush(window: K | null, events: T[]): void {
         let stack = this._stacks.get(window);
         if (!stack) {

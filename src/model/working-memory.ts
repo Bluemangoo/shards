@@ -17,7 +17,7 @@ class WorkingMemory {
 
     async load() {
         const data = await db().query(
-            "select id, content, weight, last_access from working_memory order by (last_access / weight) desc limit 60",
+            "select id, content, weight, last_access from working_memory order by last_access / weight limit 60",
         );
         const entries: WorkingMemoryItem[] = data.rows.map((row: any) => ({
             key: row.id as number,

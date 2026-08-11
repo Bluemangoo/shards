@@ -6,6 +6,8 @@ import { ChatNode, ConsumedEvent } from "../data/database/history.ts";
 import { EVENT_HINT_MAP } from "../napcat/filter.ts";
 import { stripPoke } from "../napcat/pre-stringify-event.ts";
 import { cached_get_group_member_info, cached_get_stranger_info } from "../napcat/wrapper.ts";
+import OpenAI from "openai";
+import { WithError } from "../types/error.ts";
 
 export interface MemorySearchResult {
     content: string;
@@ -47,14 +49,14 @@ class LongTermMemory {
         await db().query(insertQuery, [content, JSON.stringify(newVector.data[0].embedding)]);
     }
 
-    async search(query: string) {
+    async search(query: string, limit = 100) {
         const parsed = await liteModel.extendMemorySearch(query);
         const sentences = [query, ...parsed.hypothetical_answers];
         const embeddings = await embeddedModel.createEmbedding(sentences);
         return this.hybridSearch(
             embeddings.data.map((e) => e.embedding),
             parsed.keywords,
-            100,
+            limit,
         );
     }
 
@@ -62,7 +64,7 @@ class LongTermMemory {
         messages: HintInjectedEvent[],
         history: ConsumedEvent[],
         extras: string[] = [],
-    ) {
+    ): Promise<WithError<MemorySearchResult[], Error[]>> {
         const names = new Map<number, Set<string>>();
         // 防止全表搜
         if (extras.length == 0) {
@@ -70,14 +72,23 @@ class LongTermMemory {
         }
 
         const result: MemorySearchResult[] = [];
+        const errors: Error[] = [];
         const embeddingTasker = embeddedModel.createTask();
         const search = (hy: string[], kw: string) => {
             const createEmbeddings = embeddingTasker.add(hy);
             return async () => {
                 const embeddings = await createEmbeddings();
+                const filtered = embeddings.filter((item) => {
+                    if (item instanceof Error) {
+                        errors.push(item);
+                        return false;
+                    } else {
+                        return true;
+                    }
+                }) as OpenAI.Embeddings.Embedding[];
                 result.push(
                     ...(await this.hybridSearch(
-                        embeddings.map((e) => e.embedding),
+                        filtered.map((e) => e.embedding),
                         kw,
                         30,
                     )),
@@ -102,7 +113,7 @@ class LongTermMemory {
                     if (!names.has(uid)) {
                         names.set(uid, new Set<string>());
                     }
-                    names.get(uid)!.add(memberInfo.card);
+                    if (memberInfo.card) names.get(uid)!.add(memberInfo.card);
                     names.get(uid)!.add(memberInfo.nickname);
                 }
             } catch (e) {
@@ -123,7 +134,22 @@ class LongTermMemory {
                         }
                     }
                 }
-                fullMessageStr += msg.raw_message;
+                const msgAny = msg as any;
+                if (msgAny.summary != null) {
+                    fullMessageStr += msgAny.summary;
+                } else if (msgAny.napcat_summary != null) {
+                    fullMessageStr += msgAny.napcat_summary;
+                } else {
+                    fullMessageStr += msg.message
+                        .map((segment) => {
+                            if (segment.type == "text") {
+                                return segment.data.text;
+                            }
+                            return null;
+                        })
+                        .filter((s) => s != null)
+                        .join("");
+                }
             }
             if (msg.post_type == "notice" && msg.sub_type == "poke") {
                 try {
@@ -174,7 +200,10 @@ class LongTermMemory {
         }
         tasks.push(search(["设定"], "设定"));
         await Promise.all(tasks.map((task) => task()));
-        return this.sortResults(result);
+        return {
+            data: this.sortResults(result),
+            error: errors,
+        };
     }
 
     sortResults(results: MemorySearchResult[]) {

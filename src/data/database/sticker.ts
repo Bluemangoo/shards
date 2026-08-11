@@ -4,6 +4,7 @@ import { downloadFileWithAutoExt } from "../../utils/net.ts";
 import { imageModel } from "../../model/image-model.ts";
 import { napcat } from "../../napcat/client.ts";
 import logger from "../../log/logger.ts";
+import { resetExt } from "../../utils/file.ts";
 
 export interface ImageDescriptionData {
     id: number;
@@ -14,7 +15,7 @@ export interface ImageDescriptionData {
 
 export interface StickerResult {
     id: number;
-    file_id: string;
+    file_id: string; // 这个是用来发的，不是用来搜或去重的，所以不用去掉ext
     file_name: string;
     created_at: Date;
     description_data: ImageDescriptionData;
@@ -25,7 +26,10 @@ class Sticker {
         fileId: string,
         url: string,
     ): Promise<ImageDescriptionData | null> {
-        const exist = await this.findImageDescriptionByFileId(fileId);
+        const idWithoutExt = fileId.split(".")[0];
+        const exist =
+            (await this.findImageDescriptionByFileId(idWithoutExt)) ||
+            (await this.findImageDescriptionByFileId(fileId));
         if (exist) {
             return exist;
         }
@@ -38,7 +42,7 @@ class Sticker {
         try {
             const f = await napcat.get_image({ file: fileId });
             fileName = f.file_name;
-            fs.copyFileSync(f.file, process.cwd() + "/data/temp_stickers" + "/" + f.file_name);
+            fs.copyFileSync(f.file, process.cwd() + "/data/temp_stickers/" + f.file_name);
         } catch (e) {
             fileName = await downloadFileWithAutoExt(
                 url,
@@ -46,8 +50,10 @@ class Sticker {
                 process.cwd() + "/data/temp_stickers",
             );
         }
-        const ext = fileName.split(".").pop()!;
-        const b64 = fs.readFileSync(process.cwd() + "/data/temp_stickers/" + fileName, {
+        // 腾讯会乱发 ext
+        const filePath = resetExt(process.cwd() + "/data/temp_stickers/" + fileName);
+        const ext = filePath.split(".").pop()!;
+        const b64 = fs.readFileSync(filePath, {
             encoding: "base64",
         });
         const dataUrl = "data:image/" + ext + ";base64," + b64;
@@ -58,7 +64,7 @@ class Sticker {
 
         // 获取插入后返回的 descriptionId
         const descriptionId = await this.addImageDescription(
-            fileId,
+            idWithoutExt,
             descriptionData.summary,
             descriptionData.description,
             descriptionData.tags,

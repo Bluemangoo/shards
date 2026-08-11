@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import { ConnectionClosedError } from "puppeteer-core";
 import { retry } from "./function.ts";
+import logger from "../log/logger.ts";
 
 export interface ArticleResult {
     title: string;
@@ -12,14 +13,29 @@ export interface ArticleResult {
     markdown: string;
 }
 
-const browser: Browser = await puppeteer.launch({
+let browser: Browser = await puppeteer.launch({
     headless: true,
 });
 
 const retryAbleErrors = [ConnectionClosedError];
+const retryAbleFilters = [
+    (e: unknown) => {
+        if (e instanceof Error) {
+            if (e.message.startsWith("net::ERR_CONNECTION")) {
+                return true;
+            }
+        }
+        return false;
+    },
+];
 const retryTimes = 3;
 
 export async function fetchUrlAsMarkdown(url: string): Promise<ArticleResult> {
+    if (!browser || !browser.connected) {
+        logger.warn(["tool-call"], "浏览器实例已断开，正在尝试重启...");
+        browser.close().catch(() => {});
+        browser = await puppeteer.launch({ headless: true });
+    }
     const page: Page = await browser.newPage();
     try {
         await page.setUserAgent({
@@ -40,6 +56,7 @@ export async function fetchUrlAsMarkdown(url: string): Promise<ArticleResult> {
         await retry(
             () => page.goto(url, { waitUntil: "networkidle0", timeout: 30_000 }),
             retryAbleErrors,
+            retryAbleFilters,
             retryTimes,
         );
         await autoScroll(page);

@@ -219,5 +219,18 @@ wsServer.on("connection", (ws) => {
 });
 
 if (CONFIG.logViewer.wsPort) {
-    server.listen(CONFIG.logViewer.wsPort);
+    const onErr = (err: NodeJS.ErrnoException) => {
+        if (err.code === "EADDRINUSE") {
+            console.error(`Failed to init log viewer: 端口 ${CONFIG.logViewer.wsPort} 已被占用`);
+        } else {
+            console.error("Failed to init log viewer, server error:", err);
+        }
+    };
+    server.on("error", onErr);
+    wsServer.on("error", onErr);
+    server.listen(CONFIG.logViewer.wsPort, () => {
+        server.off("error", onErr);
+        wsServer.off("error", onErr);
+        logStream.close(); // ATTENTION WHEN DEBUG
+    });
 }
